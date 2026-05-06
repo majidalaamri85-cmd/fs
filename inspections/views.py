@@ -458,7 +458,14 @@ def export_word(request, pk):
             images_added = 0
             for image in r.images.all():
                 try:
-                    image_paragraph.add_run().add_picture(image.image.path, width=Inches(1.1))
+                    import urllib.request, io
+                    img_url = image.image.url
+                    if img_url.startswith('http'):
+                        with urllib.request.urlopen(img_url) as resp:
+                            img_data = io.BytesIO(resp.read())
+                        image_paragraph.add_run().add_picture(img_data, width=Inches(1.1))
+                    else:
+                        image_paragraph.add_run().add_picture(image.image.path, width=Inches(1.1))
                     images_added += 1
                 except Exception:
                     continue
