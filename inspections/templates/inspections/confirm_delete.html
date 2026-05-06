@@ -1,0 +1,12 @@
+{% extends 'inspections/base.html' %}
+{% block content %}
+<div class="card">
+<h2>تأكيد الحذف</h2>
+<p>هل تريد حذف تقرير المنشأة: <strong>{{ evaluation.facility_name }}</strong>؟</p>
+<form method="post">
+    {% csrf_token %}
+    <button class="btn danger" type="submit">نعم، حذف</button>
+    <a class="btn" href="{% url 'report_detail' evaluation.pk %}">إلغاء</a>
+</form>
+</div>
+{% endblock %}

@@ -1,0 +1,499 @@
+from django.shortcuts import render, redirect, get_object_or_404
+from django.http import HttpResponse, JsonResponse
+from django.contrib import messages
+from django.conf import settings
+from django.utils import timezone
+from .models import Governorate, Wilayat, Section, Item, Evaluation, Response, ResponseImage
+from .activity_options import ACTIVITY_OPTIONS
+from docx import Document
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.enum.table import WD_TABLE_ALIGNMENT
+from docx.oxml import parse_xml
+from docx.oxml.ns import nsdecls
+from docx.shared import Inches, Mm, Pt, RGBColor
+from io import BytesIO
+from pathlib import Path
+import json
+
+EVALUATION_TEAM_OPTIONS = [
+    'عياض المعولي',
+    'متعب المعمري',
+    'ماجد العامري',
+    'سالم الحارثي',
+    'عام الحبسي',
+    'أحمد المريكي',
+    'د. يوسف أحمد محمد',
+]
+
+HACCP_REQUIREMENTS = [
+    'سجل استقبال ومخزن المواد الاولية (غذائية)',
+    'سجل استقبال ومخزن المواد الاولية (التغليف)',
+    'سجل مراقب الجودة (المراقبة اليومية)',
+    'سجل مصائد القوارض والحشرات',
+    'سجل مراقبة (CCP)',
+    'سجل تتبع الإجراءات التصحيحية',
+    'سجل تتبع المنتج',
+    'سجل التخزين',
+    'سجل الارسالية',
+    'سجل النظافة',
+    'سجل العمال',
+    'سجل التدريب',
+    'سجل فحص تحليل المختبر',
+    'سجلات أخرى',
+]
+
+
+def parse_haccp_documents(value):
+    if not value:
+        return {}
+    try:
+        data = json.loads(value)
+    except json.JSONDecodeError:
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def build_haccp_documents_from_request(request):
+    documents = {}
+    for index, requirement in enumerate(HACCP_REQUIREMENTS):
+        documents[str(index)] = {
+            'requirement': requirement,
+            'exists': request.POST.get(f'haccp_exists_{index}', ''),
+            'notes': request.POST.get(f'haccp_notes_{index}', ''),
+        }
+    return json.dumps(documents, ensure_ascii=False)
+
+
+def build_haccp_rows(evaluation):
+    documents = parse_haccp_documents(evaluation.haccp_documents if evaluation else '')
+    rows = []
+    for index, requirement in enumerate(HACCP_REQUIREMENTS):
+        row = documents.get(str(index), {})
+        rows.append({
+            'index': index,
+            'requirement': row.get('requirement') or requirement,
+            'exists': row.get('exists', ''),
+            'notes': row.get('notes', ''),
+        })
+    return rows
+
+
+def get_wilayats_by_governorate(request):
+    """API endpoint to get wilayats for a selected governorate"""
+    gov_id = request.GET.get('governorate_id')
+    if not gov_id:
+        return JsonResponse({'wilayats': []})
+    
+    wilayats = Wilayat.objects.filter(governorate_id=gov_id).values('id', 'name')
+    return JsonResponse({'wilayats': list(wilayats)})
+
+
+def get_governorates(request):
+    """API endpoint to get all governorates"""
+    governorates = Governorate.objects.values('id', 'name')
+    return JsonResponse({'governorates': list(governorates)})
+
+
+def classify_score(score):
+    if score >= 86:
+        return 'ممتاز، مستوفي للحصول على شهادة ضبط الجودة'
+    if score >= 70:
+        return 'جيد، مستوفي للحصول على شهادة ضبط الجودة مع وجود فرص للتحسين'
+    if score >= 41:
+        return 'مقبول، يحتاج تأهيل ومزيد من التحسين'
+    return 'ضعيف، إيقاف الإنتاج'
+
+
+def calculate_score(evaluation):
+    # HACCP documents are a checklist only; they are intentionally excluded from scoring.
+    responses = evaluation.responses.all()
+    total = responses.exclude(status='na').count()
+    compliant = responses.filter(status='compliant').count()
+
+    score = round((compliant / total) * 100, 2) if total else 0
+
+    evaluation.score = score
+    evaluation.classification = classify_score(score)
+    evaluation.save()
+
+
+def evaluation_list(request):
+    evaluations = Evaluation.objects.all()
+    return render(request, 'inspections/evaluation_list.html', {'evaluations': evaluations})
+
+
+def save_evaluation_from_request(request, evaluation=None):
+    sections = Section.objects.prefetch_related('items').all()
+    extra_fields = [
+        'shift_count',
+        'workers_per_shift',
+        'total_factory_workers',
+        'supervisors_per_shift',
+        'total_supervisors',
+        'product_types',
+        'distribution_scope',
+        'actual_daily_production_rate',
+        'permitted_daily_production_rate',
+        'water_source',
+        'final_product_storage_area',
+        'haccp_manual',
+        'iso_22000_certificate',
+        'haccp_certificate',
+        'other_quality_certificate',
+    ]
+    
+    # Get governorate and wilayat IDs from POST
+    gov_id = request.POST.get('governorate')
+    wilayat_id = request.POST.get('wilayat')
+    
+    governorate = Governorate.objects.get(id=gov_id) if gov_id else None
+    wilayat = Wilayat.objects.get(id=wilayat_id) if wilayat_id else None
+
+    if evaluation is None:
+        evaluation = Evaluation.objects.create(
+            facility_name=request.POST.get('facility_name', ''),
+            activity_type=request.POST.get('activity_type', ''),
+            license_number=request.POST.get('license_number', ''),
+            cr_number=request.POST.get('cr_number', ''),
+            governorate=governorate,
+            wilayat=wilayat,
+            contact_name=request.POST.get('contact_name', ''),
+            contact_phone=request.POST.get('contact_phone', ''),
+            visit_date=request.POST.get('visit_date'),
+            evaluation_team=request.POST.get('evaluation_team', ''),
+            haccp_documents=build_haccp_documents_from_request(request),
+            is_draft=False,
+            **{field: request.POST.get(field, '') for field in extra_fields},
+        )
+    else:
+        evaluation.facility_name = request.POST.get('facility_name', '')
+        evaluation.activity_type = request.POST.get('activity_type', '')
+        evaluation.license_number = request.POST.get('license_number', '')
+        evaluation.cr_number = request.POST.get('cr_number', '')
+        evaluation.governorate = governorate
+        evaluation.wilayat = wilayat
+        evaluation.contact_name = request.POST.get('contact_name', '')
+        evaluation.contact_phone = request.POST.get('contact_phone', '')
+        evaluation.visit_date = request.POST.get('visit_date')
+        evaluation.evaluation_team = request.POST.get('evaluation_team', '')
+        evaluation.haccp_documents = build_haccp_documents_from_request(request)
+        evaluation.is_draft = False
+        for field in extra_fields:
+            setattr(evaluation, field, request.POST.get(field, ''))
+        evaluation.save()
+
+    for section in sections:
+        for item in section.items.all():
+            status = request.POST.get(f'status_{item.id}', 'compliant')
+            response, created = Response.objects.update_or_create(
+                evaluation=evaluation,
+                item=item,
+                defaults={
+                    'status': status,
+                    'notes': request.POST.get(f'notes_{item.id}', ''),
+                    'corrective_action': request.POST.get(f'corrective_{item.id}', ''),
+                    'correction_duration': request.POST.get(f'duration_{item.id}', ''),
+                }
+            )
+
+            for image in request.FILES.getlist(f'images_{item.id}'):
+                ResponseImage.objects.create(response=response, image=image)
+
+    calculate_score(evaluation)
+    return evaluation
+
+
+def evaluation_form(request):
+    sections = Section.objects.prefetch_related('items').all()
+    governorates = Governorate.objects.all()
+    
+    if request.method == 'POST':
+        evaluation = save_evaluation_from_request(request)
+        messages.success(request, 'تم حفظ التقييم وحساب النتيجة بنجاح.')
+        return redirect('report_detail', evaluation.pk)
+
+    return render(request, 'inspections/evaluation_form.html', {
+        'sections': sections,
+        'evaluation': None,
+        'responses_map': {},
+        'governorates': governorates,
+        'activity_options': ACTIVITY_OPTIONS,
+        'evaluation_team_options': EVALUATION_TEAM_OPTIONS,
+        'haccp_rows': build_haccp_rows(None),
+        'today': timezone.localdate(),
+    })
+
+
+def evaluation_edit(request, pk):
+    evaluation = get_object_or_404(Evaluation, pk=pk)
+    sections = Section.objects.prefetch_related('items').all()
+    governorates = Governorate.objects.all()
+    wilayats = evaluation.governorate.wilayats.all() if evaluation.governorate else Wilayat.objects.none()
+    responses_map = {r.item_id: r for r in evaluation.responses.all()}
+
+    if request.method == 'POST':
+        evaluation = save_evaluation_from_request(request, evaluation)
+        messages.success(request, 'تم تعديل التقييم بنجاح.')
+        return redirect('report_detail', evaluation.pk)
+
+    return render(request, 'inspections/evaluation_form.html', {
+        'sections': sections,
+        'evaluation': evaluation,
+        'responses_map': responses_map,
+        'governorates': governorates,
+        'wilayats': wilayats,
+        'activity_options': ACTIVITY_OPTIONS,
+        'evaluation_team_options': EVALUATION_TEAM_OPTIONS,
+        'haccp_rows': build_haccp_rows(evaluation),
+    })
+
+
+def report_detail(request, pk):
+    evaluation = get_object_or_404(Evaluation, pk=pk)
+    responses = evaluation.responses.select_related('item', 'item__section').prefetch_related('images').all()
+    return render(request, 'inspections/report_detail.html', {
+        'evaluation': evaluation,
+        'responses': responses,
+        'haccp_rows': build_haccp_rows(evaluation),
+    })
+
+
+def evaluation_delete(request, pk):
+    evaluation = get_object_or_404(Evaluation, pk=pk)
+    if request.method == 'POST':
+        evaluation.delete()
+        messages.success(request, 'تم حذف التقرير بنجاح.')
+        return redirect('evaluation_list')
+    return render(request, 'inspections/confirm_delete.html', {'evaluation': evaluation})
+
+
+def shade_cell(cell, fill):
+    cell._tc.get_or_add_tcPr().append(parse_xml(r'<w:shd {} w:fill="{}"/>'.format(nsdecls('w'), fill)))
+
+
+def set_table_rtl(table):
+    table._tbl.tblPr.append(parse_xml(r'<w:bidiVisual {} />'.format(nsdecls('w'))))
+
+
+def set_cell_text(cell, text, bold=False, color=None):
+    cell.text = ''
+    paragraph = cell.paragraphs[0]
+    paragraph.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+    run = paragraph.add_run(str(text or ''))
+    run.bold = bold
+    if color:
+        run.font.color.rgb = RGBColor.from_string(color)
+
+
+def style_table_header(row, fill='0F6B4B'):
+    for cell in row.cells:
+        shade_cell(cell, fill)
+        set_cell_text(cell, cell.text, bold=True, color='FFFFFF')
+
+
+def add_section_heading(doc, title, fill='0F6B4B'):
+    table = doc.add_table(rows=1, cols=1)
+    table.alignment = WD_TABLE_ALIGNMENT.CENTER
+    cell = table.rows[0].cells[0]
+    shade_cell(cell, fill)
+    set_cell_text(cell, title, bold=True, color='FFFFFF')
+    doc.add_paragraph()
+
+
+def get_report_header_path():
+    base_dir = Path(settings.BASE_DIR)
+    candidates = [
+        base_dir / 'static' / 'images' / 'report_header.png',
+        base_dir / 'inspections' / 'static' / 'inspections' / 'report_header.png',
+        base_dir.parent.parent / 'final' / 'static' / 'images' / 'report_header.png',
+    ]
+    for path in candidates:
+        if path.exists():
+            return path
+    return None
+
+
+def add_report_header(doc):
+    section = doc.sections[0]
+    section.page_width = Mm(210)
+    section.page_height = Mm(297)
+    section.left_margin = Mm(10)
+    section.right_margin = Mm(10)
+    section.top_margin = Mm(8)
+    section.bottom_margin = Mm(10)
+
+    header_path = get_report_header_path()
+    if not header_path:
+        return
+
+    paragraph = doc.add_paragraph()
+    paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    paragraph.paragraph_format.space_after = Pt(6)
+    paragraph.add_run().add_picture(str(header_path), width=section.page_width)
+
+
+def get_report_signature_path():
+    base_dir = Path(settings.BASE_DIR)
+    candidates = [
+        base_dir / 'static' / 'images' / 'report_signature.png',
+        base_dir / 'inspections' / 'static' / 'inspections' / 'report_signature.png',
+        base_dir.parent.parent / 'final' / 'static' / 'images' / 'report_signature.png',
+    ]
+    for path in candidates:
+        if path.exists():
+            return path
+    return None
+
+
+def add_report_signature(doc):
+    signature_path = get_report_signature_path()
+    if not signature_path:
+        return
+
+    paragraph = doc.add_paragraph()
+    paragraph.alignment = WD_ALIGN_PARAGRAPH.LEFT
+    paragraph.paragraph_format.space_before = Pt(18)
+    paragraph.paragraph_format.space_after = Pt(0)
+    paragraph.add_run().add_picture(str(signature_path), width=Inches(4.6))
+
+
+def export_word(request, pk):
+    evaluation = get_object_or_404(Evaluation, pk=pk)
+    non_compliant_responses = (
+        evaluation.responses
+        .filter(status='non_compliant')
+        .select_related('item', 'item__section')
+        .prefetch_related('images')
+        .order_by('item__section__order', 'item__number')
+    )
+    doc = Document()
+    add_report_header(doc)
+
+    style = doc.styles['Normal']
+    style.font.name = 'Arial'
+    style.font.size = Pt(11)
+
+    title = doc.add_heading('تقرير تقييم منشأة غذائية', level=1)
+    title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    title.runs[0].font.color.rgb = RGBColor.from_string('0F6B4B')
+
+    score_fill = '138A4C' if evaluation.score >= 86 else '2F855A' if evaluation.score >= 70 else 'D9A441' if evaluation.score >= 41 else 'B42318'
+    score_table = doc.add_table(rows=1, cols=2)
+    score_table.alignment = WD_TABLE_ALIGNMENT.CENTER
+    score_table.style = 'Table Grid'
+    score_cells = score_table.rows[0].cells
+    shade_cell(score_cells[0], score_fill)
+    shade_cell(score_cells[1], score_fill)
+    set_cell_text(score_cells[0], f'{evaluation.score}%', bold=True, color='FFFFFF')
+    set_cell_text(score_cells[1], evaluation.classification, bold=True, color='FFFFFF')
+
+    add_section_heading(doc, 'بيانات المنشأة')
+    info = [
+        ('اسم المنشأة', evaluation.facility_name),
+        ('نوع النشاط', evaluation.activity_type),
+        ('رقم الرخصة', evaluation.license_number),
+        ('رقم السجل التجاري', evaluation.cr_number),
+        ('المحافظة', evaluation.governorate.name if evaluation.governorate else ''),
+        ('الولاية', evaluation.wilayat.name if evaluation.wilayat else ''),
+        ('تاريخ الزيارة', str(evaluation.visit_date)),
+        ('فريق التقييم', evaluation.evaluation_team),
+        ('عدد الورديات', evaluation.shift_count),
+        ('عدد العاملين في الوردية', evaluation.workers_per_shift),
+        ('مجموع عدد العاملين المصنع', evaluation.total_factory_workers),
+        ('عدد المشرفين في الوردية', evaluation.supervisors_per_shift),
+        ('مجموع عدد المشرفين', evaluation.total_supervisors),
+        ('أنواع المنتجات', evaluation.product_types),
+        ('التوزيع (محلي/تصدير)', evaluation.distribution_scope),
+        ('معدل الإنتاج اليومي الفعلي', evaluation.actual_daily_production_rate),
+        ('معدل الإنتاج اليومي المسموح', evaluation.permitted_daily_production_rate),
+        ('مصدر الماء المستخدم', evaluation.water_source),
+        ('إجمالي مساحة مخزن المنتج النهائي', evaluation.final_product_storage_area),
+        ('دليل الهاسب للشركة إن وجد', evaluation.haccp_manual),
+        ('آيزو 22000', evaluation.iso_22000_certificate),
+        ('الهاسب', evaluation.haccp_certificate),
+        ('أخرى', evaluation.other_quality_certificate),
+        ('النتيجة', f'{evaluation.score}%'),
+        ('الوضع العام للمنشأة', evaluation.classification),
+    ]
+
+    table = doc.add_table(rows=0, cols=2)
+    table.alignment = WD_TABLE_ALIGNMENT.CENTER
+    table.style = 'Table Grid'
+    for label, value in info:
+        row = table.add_row().cells
+        shade_cell(row[1], 'E6F4EE')
+        set_cell_text(row[0], value)
+        set_cell_text(row[1], label, bold=True)
+
+    add_section_heading(doc, 'البنود غير المستوفية والإجراءات التصحيحية', fill='B42318')
+
+    if not non_compliant_responses:
+        ok = doc.add_paragraph('لا توجد بنود غير مستوفية.')
+        ok.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+    else:
+        current_section = None
+        for r in non_compliant_responses:
+            if current_section != r.item.section_id:
+                current_section = r.item.section_id
+            add_section_heading(doc, f'\u200e{r.item.section.order}. {r.item.section.title}', fill='155E75')
+
+            item_table = doc.add_table(rows=1, cols=5)
+            item_table.alignment = WD_TABLE_ALIGNMENT.CENTER
+            item_table.style = 'Table Grid'
+            set_table_rtl(item_table)
+            hdr = item_table.rows[0].cells
+            headers = ['البند', 'الملاحظات', 'الإجراء التصحيحي', 'مدة التصحيح', 'الصور']
+            for cell, header in zip(hdr, headers):
+                set_cell_text(cell, header, bold=True)
+            style_table_header(item_table.rows[0], fill='0F6B4B')
+
+            row = item_table.add_row().cells
+            set_cell_text(row[0], f'\u200e{r.item.number} - {r.item.text}')
+            set_cell_text(row[1], r.notes)
+            set_cell_text(row[2], r.corrective_action)
+            set_cell_text(row[3], r.correction_duration)
+
+            image_paragraph = row[4].paragraphs[0]
+            image_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            images_added = 0
+            for image in r.images.all():
+                try:
+                    image_paragraph.add_run().add_picture(image.image.path, width=Inches(1.1))
+                    images_added += 1
+                except Exception:
+                    continue
+            if not images_added:
+                set_cell_text(row[4], 'لا توجد صور')
+
+            doc.add_paragraph()
+
+    add_section_heading(doc, 'مستندات الهاسب وشهادات أنظمة الجودة')
+    table3 = doc.add_table(rows=1, cols=4)
+    table3.alignment = WD_TABLE_ALIGNMENT.CENTER
+    table3.style = 'Table Grid'
+    hdr = table3.rows[0].cells
+    hdr[0].text = 'الملاحظات'
+    hdr[1].text = 'لا'
+    hdr[2].text = 'نعم'
+    hdr[3].text = 'المتطلبات'
+    style_table_header(table3.rows[0])
+
+    for haccp_row in build_haccp_rows(evaluation):
+        row = table3.add_row().cells
+        set_cell_text(row[0], haccp_row['notes'])
+        set_cell_text(row[1], 'نعم' if haccp_row['exists'] == 'no' else '')
+        set_cell_text(row[2], 'نعم' if haccp_row['exists'] == 'yes' else '')
+        set_cell_text(row[3], haccp_row['requirement'])
+
+    add_report_signature(doc)
+
+    buffer = BytesIO()
+    doc.save(buffer)
+    buffer.seek(0)
+
+    response = HttpResponse(
+        buffer.read(),
+        content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    )
+    response['Content-Disposition'] = f'attachment; filename=evaluation_report_{evaluation.pk}.docx'
+    return response

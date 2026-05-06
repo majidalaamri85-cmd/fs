@@ -1,0 +1,301 @@
+{% extends 'inspections/base.html' %}
+{% load inspection_extras %}
+{% block content %}
+
+<form method="post" enctype="multipart/form-data" class="form-card">
+{% csrf_token %}
+
+<div class="section-card">
+    <button type="button" class="section-toggle">
+        تسجيل بيانات المنشأة
+        <span>+</span>
+    </button>
+
+    <div class="section-content">
+        <div class="grid">
+            <input type="date" name="visit_date" required value="{% if evaluation %}{{ evaluation.visit_date|date:'Y-m-d' }}{% else %}{{ today|date:'Y-m-d' }}{% endif %}">
+            <input type="text" name="facility_name" placeholder="اسم المنشأة" required value="{{ evaluation.facility_name|default:'' }}">
+            <input type="text" name="activity_type" list="activity-options" placeholder="نوع النشاط - ابحث أو اختر من القائمة" value="{{ evaluation.activity_type|default:'' }}" autocomplete="off">
+            <datalist id="activity-options">
+                {% for activity in activity_options %}
+                    <option value="{{ activity }}"></option>
+                {% endfor %}
+            </datalist>
+            <input type="text" name="license_number" placeholder="رقم رخصة مزاولة النشاط" value="{{ evaluation.license_number|default:'' }}">
+            <input type="text" name="cr_number" placeholder="رقم السجل التجاري" value="{{ evaluation.cr_number|default:'' }}">
+            
+            <select id="governorate-select" name="governorate" required>
+                <option value="">اختر المحافظة</option>
+                {% for gov in governorates %}
+                    <option value="{{ gov.id }}" {% if evaluation.governorate.id == gov.id %}selected{% endif %}>
+                        {{ gov.name }}
+                    </option>
+                {% endfor %}
+            </select>
+            
+            <select id="wilayat-select" name="wilayat">
+                <option value="">اختر الولاية</option>
+                {% if evaluation.wilayat %}
+                    {% for wilayat in wilayats %}
+                        <option value="{{ wilayat.id }}" {% if evaluation.wilayat.id == wilayat.id %}selected{% endif %}>
+                            {{ wilayat.name }}
+                        </option>
+                    {% endfor %}
+                {% endif %}
+            </select>
+            
+            <input type="text" name="contact_name" placeholder="اسم المسؤول" value="{{ evaluation.contact_name|default:'' }}">
+            <input type="text" name="contact_phone" placeholder="رقم التواصل" value="{{ evaluation.contact_phone|default:'' }}">
+        </div>
+
+        <div class="grid extra-info-grid">
+            <input type="number" min="0" name="shift_count" placeholder="عدد الورديات" value="{{ evaluation.shift_count|default:'' }}">
+            <input type="number" min="0" name="workers_per_shift" placeholder="عدد العاملين في الوردية" value="{{ evaluation.workers_per_shift|default:'' }}">
+            <input type="number" min="0" name="total_factory_workers" placeholder="مجموع عدد العاملين المصنع" value="{{ evaluation.total_factory_workers|default:'' }}">
+            <input type="number" min="0" name="supervisors_per_shift" placeholder="عدد المشرفين في الوردية" value="{{ evaluation.supervisors_per_shift|default:'' }}">
+            <input type="number" min="0" name="total_supervisors" placeholder="مجموع عدد المشرفين" value="{{ evaluation.total_supervisors|default:'' }}">
+            <input type="text" name="distribution_scope" placeholder="التوزيع (محلي/تصدير)" value="{{ evaluation.distribution_scope|default:'' }}">
+            <input type="text" name="actual_daily_production_rate" placeholder="معدل الإنتاج اليومي الفعلي" value="{{ evaluation.actual_daily_production_rate|default:'' }}">
+            <input type="text" name="permitted_daily_production_rate" placeholder="معدل الإنتاج اليومي المسموح" value="{{ evaluation.permitted_daily_production_rate|default:'' }}">
+            <input type="text" name="water_source" placeholder="مصدر الماء المستخدم" value="{{ evaluation.water_source|default:'' }}">
+            <input type="text" name="final_product_storage_area" placeholder="إجمالي مساحة مخزن المنتج النهائي" value="{{ evaluation.final_product_storage_area|default:'' }}">
+            <textarea name="product_types" class="wide-field" placeholder="أنواع المنتجات">{{ evaluation.product_types|default:'' }}</textarea>
+        </div>
+
+        <div class="team-picker">
+            <label for="team-member-input">فريق التقييم</label>
+            <div class="team-picker-row">
+                <input type="text" id="team-member-input" list="evaluation-team-options" placeholder="اختر من القائمة أو اكتب اسم عضو جديد">
+                <button type="button" class="btn" id="add-team-member">
+                    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                    إضافة
+                </button>
+            </div>
+            <datalist id="evaluation-team-options">
+                {% for member in evaluation_team_options %}
+                    <option value="{{ member }}"></option>
+                {% endfor %}
+            </datalist>
+            <div class="team-members" id="team-members"></div>
+            <textarea name="evaluation_team" id="evaluation-team-value" class="hidden-field">{{ evaluation.evaluation_team|default:'' }}</textarea>
+        </div>
+
+    </div>
+</div>
+
+{% for section in sections %}
+<div class="section-card">
+    <button type="button" class="section-toggle">
+        <span class="section-title-text"><span class="number-prefix">{{ section.order }}.</span> {{ section.title }}</span>
+        <span>+</span>
+    </button>
+
+    <div class="section-content">
+    {% for item in section.items.all %}
+        {% with response=responses_map|get_item:item.id %}
+        <div class="item-card">
+            <div class="item-title">
+                <strong>{{ item.number }}</strong>
+                <p>{{ item.text }}</p>
+            </div>
+
+            <select name="status_{{ item.id }}" class="status-select">
+                <option value="compliant" {% if response.status == 'compliant' or not response %}selected{% endif %}>مستوفي</option>
+                <option value="non_compliant" {% if response.status == 'non_compliant' %}selected{% endif %}>غير مستوفي</option>
+                <option value="na" {% if response.status == 'na' %}selected{% endif %}>لا ينطبق</option>
+            </select>
+
+            <div class="non-box" {% if response.status == 'non_compliant' %}style="display:block"{% endif %}>
+                <textarea name="notes_{{ item.id }}" placeholder="الملاحظات">{{ response.notes|default:'' }}</textarea>
+                <textarea name="corrective_{{ item.id }}" placeholder="الإجراء التصحيحي">{{ response.corrective_action|default:item.corrective_action }}</textarea>
+                <input type="text" name="duration_{{ item.id }}" placeholder="تحديد مدة التصحيح" value="{{ response.correction_duration|default:'' }}">
+                <input type="file" name="images_{{ item.id }}" multiple accept="image/*">
+
+                {% if response %}
+                <div class="thumbs">
+                    {% for img in response.images.all %}
+                    <img src="{{ img.image.url }}" alt="صورة مخالفة">
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endwith %}
+    {% endfor %}
+    </div>
+</div>
+{% endfor %}
+
+<div class="section-card">
+    <button type="button" class="section-toggle">
+        مستندات الهاسب وشهادات أنظمة الجودة
+        <span>+</span>
+    </button>
+    <div class="section-content">
+        <div class="haccp-cert-grid">
+            <textarea name="haccp_manual" placeholder="دليل الهاسب للشركة إن وجد">{{ evaluation.haccp_manual|default:'' }}</textarea>
+            <textarea name="iso_22000_certificate" placeholder="آيزو 22000 / تاريخ الإصدار / تاريخ الانتهاء / الجهة المانحة">{{ evaluation.iso_22000_certificate|default:'' }}</textarea>
+            <textarea name="haccp_certificate" placeholder="الهاسب / تاريخ الإصدار / تاريخ الانتهاء / الجهة المانحة">{{ evaluation.haccp_certificate|default:'' }}</textarea>
+            <textarea name="other_quality_certificate" placeholder="أخرى">{{ evaluation.other_quality_certificate|default:'' }}</textarea>
+        </div>
+
+        <div class="haccp-table-wrap">
+            <table class="data-table haccp-table">
+                <tr>
+                    <th rowspan="2">المتطلبات</th>
+                    <th colspan="2">وجود المستند</th>
+                    <th rowspan="2">الملاحظات</th>
+                </tr>
+                <tr>
+                    <th>نعم</th>
+                    <th>لا</th>
+                </tr>
+                {% for row in haccp_rows %}
+                <tr>
+                    <td>{{ row.requirement }}</td>
+                    <td>
+                        <input type="radio" name="haccp_exists_{{ row.index }}" value="yes" {% if row.exists == 'yes' %}checked{% endif %}>
+                    </td>
+                    <td>
+                        <input type="radio" name="haccp_exists_{{ row.index }}" value="no" {% if row.exists == 'no' %}checked{% endif %}>
+                    </td>
+                    <td>
+                        <input type="text" name="haccp_notes_{{ row.index }}" value="{{ row.notes }}" placeholder="الملاحظات">
+                    </td>
+                </tr>
+                {% endfor %}
+            </table>
+        </div>
+    </div>
+</div>
+
+<button type="submit" class="btn primary full">
+    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg>
+    حفظ التقييم وحساب النتيجة
+</button>
+</form>
+
+<script>
+document.querySelectorAll(".section-toggle").forEach(btn => {
+    btn.addEventListener("click", function() {
+        const content = this.nextElementSibling;
+        const icon = this.querySelector("span");
+        const isOpen = content.style.display === "block";
+        content.style.display = isOpen ? "none" : "block";
+        icon.textContent = isOpen ? "+" : "-";
+    });
+});
+
+document.querySelectorAll(".status-select").forEach(select => {
+    const box = select.closest(".item-card").querySelector(".non-box");
+    if(select.value === "non_compliant") box.style.display = "block";
+
+    select.addEventListener("change", function() {
+        box.style.display = this.value === "non_compliant" ? "block" : "none";
+    });
+});
+
+document.querySelectorAll("input, select, textarea").forEach(field => {
+    field.addEventListener("invalid", function() {
+        const content = this.closest(".section-content");
+        if (!content) return;
+
+        content.style.display = "block";
+        const icon = content.previousElementSibling?.querySelector("span");
+        if (icon) icon.textContent = "-";
+    });
+});
+
+const teamInput = document.getElementById("team-member-input");
+const addTeamMemberButton = document.getElementById("add-team-member");
+const teamMembersBox = document.getElementById("team-members");
+const teamValue = document.getElementById("evaluation-team-value");
+let teamMembers = [];
+
+function syncTeamMembers() {
+    if (!teamMembersBox || !teamValue) return;
+
+    teamValue.value = teamMembers.join("\n");
+    teamMembersBox.innerHTML = "";
+
+    teamMembers.forEach((member, index) => {
+        const item = document.createElement("span");
+        item.className = "team-chip";
+        item.textContent = member;
+
+        const removeButton = document.createElement("button");
+        removeButton.type = "button";
+        removeButton.textContent = "×";
+        removeButton.setAttribute("aria-label", `حذف ${member}`);
+        removeButton.addEventListener("click", () => {
+            teamMembers.splice(index, 1);
+            syncTeamMembers();
+        });
+
+        item.appendChild(removeButton);
+        teamMembersBox.appendChild(item);
+    });
+}
+
+function addTeamMember() {
+    if (!teamInput) return;
+
+    const member = teamInput.value.trim();
+    if (!member || teamMembers.includes(member)) {
+        teamInput.value = "";
+        return;
+    }
+
+    teamMembers.push(member);
+    teamInput.value = "";
+    syncTeamMembers();
+}
+
+if (teamValue) {
+    teamMembers = teamValue.value
+        .split(/\r?\n/)
+        .map(member => member.trim())
+        .filter(Boolean);
+    syncTeamMembers();
+}
+
+if (addTeamMemberButton) {
+    addTeamMemberButton.addEventListener("click", addTeamMember);
+}
+
+if (teamInput) {
+    teamInput.addEventListener("keydown", event => {
+        if (event.key === "Enter") {
+            event.preventDefault();
+            addTeamMember();
+        }
+    });
+}
+
+// Handle governorate and wilayat dropdown
+const governorateSelect = document.getElementById('governorate-select');
+const wilayatSelect = document.getElementById('wilayat-select');
+
+if (governorateSelect) {
+    governorateSelect.addEventListener('change', function() {
+        const governorateId = this.value;
+        
+        if (!governorateId) {
+            wilayatSelect.innerHTML = '<option value="">اختر الولاية</option>';
+            return;
+        }
+        
+        fetch(`/api/wilayats/?governorate_id=${governorateId}`)
+            .then(response => response.json())
+            .then(data => {
+                let html = '<option value="">اختر الولاية</option>';
+                data.wilayats.forEach(wilayat => {
+                    html += `<option value="${wilayat.id}">${wilayat.name}</option>`;
+                });
+                wilayatSelect.innerHTML = html;
+            });
+    });
+}
+</script>
+
+{% endblock %}
