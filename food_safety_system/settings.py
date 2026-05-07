@@ -1,5 +1,6 @@
 from pathlib import Path
 import os
+from urllib.parse import urlparse
 import dj_database_url
 import cloudinary
 
@@ -65,7 +66,10 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'food_safety_system.wsgi.application'
 
-DATABASE_URL = os.environ.get('DATABASE_URL')
+# Guard against invalid DATABASE_URL values (for example, "://") that crash startup.
+raw_database_url = os.environ.get('DATABASE_URL', '').strip()
+parsed_database_url = urlparse(raw_database_url) if raw_database_url else None
+DATABASE_URL = raw_database_url if parsed_database_url and parsed_database_url.scheme else None
 
 DATABASES = {
     'default': dj_database_url.config(
