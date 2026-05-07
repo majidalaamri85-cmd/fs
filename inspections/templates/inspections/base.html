@@ -1,14 +1,15 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
+    {% load static %}
     <meta charset="UTF-8">
     <title>نظام تقييم المنشآت الغذائية</title>
-    <link rel="stylesheet" href="/static/inspections/style.css?v=9">
+    <link rel="stylesheet" href="{% static 'inspections/style.css' %}?v=10">
 </head>
 <body>
 <header class="topbar">
     <div class="brand-block">
-        <img src="/static/inspections/logo.png?v=5" alt="مركز سلامة وجودة الغذاء" class="header-logo" width="158" height="54">
+        <img src="{% static 'inspections/logo.png' %}?v=6" alt="مركز سلامة وجودة الغذاء" class="header-logo" width="158" height="54">
         <div>
             <h1>نظام تقييم المنشآت الغذائية</h1>
             <p>مركز سلامة وجودة الغذاء</p>
