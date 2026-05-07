@@ -9,6 +9,9 @@
 
 <div class="card">
 <h2>قائمة التقارير</h2>
+{% if db_error_message %}
+<div class="alert">{{ db_error_message }}</div>
+{% endif %}
 <form method="get" class="card" style="margin-bottom: 16px;">
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; align-items: end;">
         <label>

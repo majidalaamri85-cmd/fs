@@ -4,6 +4,7 @@ from django.contrib import messages
 from django.conf import settings
 from django.utils import timezone
 from django.db.models import Q
+from django.db.utils import DatabaseError, OperationalError, ProgrammingError
 from .models import Governorate, Wilayat, Section, Item, Evaluation, Response, ResponseImage
 from .activity_options import ACTIVITY_OPTIONS
 from docx import Document
@@ -123,21 +124,29 @@ def evaluation_list(request):
     license_number = request.GET.get('license_number', '').strip()
     cr_number = request.GET.get('cr_number', '').strip()
 
-    evaluations = Evaluation.objects.all()
+    error_message = ''
+    try:
+        evaluations = Evaluation.objects.all()
 
-    if query:
-        evaluations = evaluations.filter(
-            Q(facility_name__icontains=query)
-            | Q(contact_name__icontains=query)
-            | Q(license_number__icontains=query)
-            | Q(cr_number__icontains=query)
-        )
+        if query:
+            evaluations = evaluations.filter(
+                Q(facility_name__icontains=query)
+                | Q(contact_name__icontains=query)
+                | Q(license_number__icontains=query)
+                | Q(cr_number__icontains=query)
+            )
 
-    if license_number:
-        evaluations = evaluations.filter(license_number__icontains=license_number)
+        if license_number:
+            evaluations = evaluations.filter(license_number__icontains=license_number)
 
-    if cr_number:
-        evaluations = evaluations.filter(cr_number__icontains=cr_number)
+        if cr_number:
+            evaluations = evaluations.filter(cr_number__icontains=cr_number)
+
+        results_count = evaluations.count()
+    except (OperationalError, ProgrammingError, DatabaseError):
+        evaluations = Evaluation.objects.none()
+        results_count = 0
+        error_message = 'تعذر استجلاب التقارير من قاعدة البيانات. تأكد من اتصال DATABASE_URL وتطبيق migrations المطلوبة.'
 
     return render(request, 'inspections/evaluation_list.html', {
         'evaluations': evaluations,
@@ -146,7 +155,8 @@ def evaluation_list(request):
             'license_number': license_number,
             'cr_number': cr_number,
         },
-        'results_count': evaluations.count(),
+        'results_count': results_count,
+        'db_error_message': error_message,
     })
 
 
@@ -155,21 +165,28 @@ def get_reports(request):
     license_number = request.GET.get('license_number', '').strip()
     cr_number = request.GET.get('cr_number', '').strip()
 
-    evaluations = Evaluation.objects.all()
+    try:
+        evaluations = Evaluation.objects.all()
 
-    if query:
-        evaluations = evaluations.filter(
-            Q(facility_name__icontains=query)
-            | Q(contact_name__icontains=query)
-            | Q(license_number__icontains=query)
-            | Q(cr_number__icontains=query)
-        )
+        if query:
+            evaluations = evaluations.filter(
+                Q(facility_name__icontains=query)
+                | Q(contact_name__icontains=query)
+                | Q(license_number__icontains=query)
+                | Q(cr_number__icontains=query)
+            )
 
-    if license_number:
-        evaluations = evaluations.filter(license_number__icontains=license_number)
+        if license_number:
+            evaluations = evaluations.filter(license_number__icontains=license_number)
 
-    if cr_number:
-        evaluations = evaluations.filter(cr_number__icontains=cr_number)
+        if cr_number:
+            evaluations = evaluations.filter(cr_number__icontains=cr_number)
+    except (OperationalError, ProgrammingError, DatabaseError):
+        return JsonResponse({
+            'reports': [],
+            'count': 0,
+            'error': 'Database schema/connection is not ready. Run migrations for the connected database.',
+        }, status=503)
 
     data = [
         {
