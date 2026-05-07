@@ -66,8 +66,6 @@ TEMPLATES = [
 WSGI_APPLICATION = 'food_safety_system.wsgi.application'
 
 DATABASE_URL = os.environ.get('DATABASE_URL')
-if not DEBUG and not DATABASE_URL:
-    raise ValueError('DATABASE_URL is required when DEBUG=False')
 
 DATABASES = {
     'default': dj_database_url.config(
