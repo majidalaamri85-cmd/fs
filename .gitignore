@@ -16,6 +16,10 @@ media/
 *.jpeg
 *.png
 *.gif
+!inspections/static/**/*.jpg
+!inspections/static/**/*.jpeg
+!inspections/static/**/*.png
+!inspections/static/**/*.gif
 
 # Python
 __pycache__/
