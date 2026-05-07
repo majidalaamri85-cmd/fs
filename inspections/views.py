@@ -3,6 +3,7 @@ from django.http import HttpResponse, JsonResponse
 from django.contrib import messages
 from django.conf import settings
 from django.utils import timezone
+from django.db.models import Q
 from .models import Governorate, Wilayat, Section, Item, Evaluation, Response, ResponseImage
 from .activity_options import ACTIVITY_OPTIONS
 from docx import Document
@@ -118,8 +119,72 @@ def calculate_score(evaluation):
 
 
 def evaluation_list(request):
+    query = request.GET.get('q', '').strip()
+    license_number = request.GET.get('license_number', '').strip()
+    cr_number = request.GET.get('cr_number', '').strip()
+
     evaluations = Evaluation.objects.all()
-    return render(request, 'inspections/evaluation_list.html', {'evaluations': evaluations})
+
+    if query:
+        evaluations = evaluations.filter(
+            Q(facility_name__icontains=query)
+            | Q(contact_name__icontains=query)
+            | Q(license_number__icontains=query)
+            | Q(cr_number__icontains=query)
+        )
+
+    if license_number:
+        evaluations = evaluations.filter(license_number__icontains=license_number)
+
+    if cr_number:
+        evaluations = evaluations.filter(cr_number__icontains=cr_number)
+
+    return render(request, 'inspections/evaluation_list.html', {
+        'evaluations': evaluations,
+        'filters': {
+            'q': query,
+            'license_number': license_number,
+            'cr_number': cr_number,
+        },
+        'results_count': evaluations.count(),
+    })
+
+
+def get_reports(request):
+    query = request.GET.get('q', '').strip()
+    license_number = request.GET.get('license_number', '').strip()
+    cr_number = request.GET.get('cr_number', '').strip()
+
+    evaluations = Evaluation.objects.all()
+
+    if query:
+        evaluations = evaluations.filter(
+            Q(facility_name__icontains=query)
+            | Q(contact_name__icontains=query)
+            | Q(license_number__icontains=query)
+            | Q(cr_number__icontains=query)
+        )
+
+    if license_number:
+        evaluations = evaluations.filter(license_number__icontains=license_number)
+
+    if cr_number:
+        evaluations = evaluations.filter(cr_number__icontains=cr_number)
+
+    data = [
+        {
+            'id': evaluation.pk,
+            'facility_name': evaluation.facility_name,
+            'license_number': evaluation.license_number,
+            'cr_number': evaluation.cr_number,
+            'visit_date': evaluation.visit_date,
+            'score': evaluation.score,
+            'classification': evaluation.classification,
+            'is_draft': evaluation.is_draft,
+        }
+        for evaluation in evaluations
+    ]
+    return JsonResponse({'reports': data, 'count': len(data)})
 
 
 def save_evaluation_from_request(request, evaluation=None):

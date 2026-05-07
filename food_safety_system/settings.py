@@ -6,13 +6,22 @@ import cloudinary
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-food-safety-system-v11-dev-key')
-DEBUG = os.environ.get('DEBUG', 'True') == 'True'
+DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = ['*']
-
+ALLOWED_HOSTS = []
 RENDER_EXTERNAL_HOSTNAME = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
 if RENDER_EXTERNAL_HOSTNAME:
     ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
+elif DEBUG:
+    ALLOWED_HOSTS = ['*']  # Keep local development flexible
+
+# CSRF trusted origins for Render deployment
+CSRF_TRUSTED_ORIGINS = []
+if RENDER_EXTERNAL_HOSTNAME:
+    CSRF_TRUSTED_ORIGINS = [
+        f'https://{RENDER_EXTERNAL_HOSTNAME}',
+        f'http://{RENDER_EXTERNAL_HOSTNAME}',
+    ]
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -56,10 +65,15 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'food_safety_system.wsgi.application'
 
+DATABASE_URL = os.environ.get('DATABASE_URL')
+if not DEBUG and not DATABASE_URL:
+    raise ValueError('DATABASE_URL is required when DEBUG=False')
+
 DATABASES = {
     'default': dj_database_url.config(
-        default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
+        default=DATABASE_URL or f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
         conn_max_age=600,
+        ssl_require=not DEBUG,
     )
 }
 

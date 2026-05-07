@@ -9,6 +9,27 @@
 
 <div class="card">
 <h2>قائمة التقارير</h2>
+<form method="get" class="card" style="margin-bottom: 16px;">
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; align-items: end;">
+        <label>
+            <span>بحث عام</span>
+            <input type="text" name="q" value="{{ filters.q }}" placeholder="اسم المنشأة أو المسؤول أو رقم السجل">
+        </label>
+        <label>
+            <span>رقم الرخصة</span>
+            <input type="text" name="license_number" value="{{ filters.license_number }}" placeholder="أدخل رقم الرخصة">
+        </label>
+        <label>
+            <span>رقم السجل التجاري</span>
+            <input type="text" name="cr_number" value="{{ filters.cr_number }}" placeholder="أدخل رقم السجل التجاري">
+        </label>
+        <div class="page-actions" style="margin: 0;">
+            <button type="submit" class="btn primary">استجلاب التقارير</button>
+            <a class="btn" href="{% url 'evaluation_list' %}">إعادة ضبط</a>
+        </div>
+    </div>
+    <p style="margin: 12px 0 0;">عدد النتائج: {{ results_count }}</p>
+</form>
 <table class="data-table">
 <tr>
     <th>المنشأة</th>

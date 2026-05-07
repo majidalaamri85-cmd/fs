@@ -9,6 +9,7 @@ urlpatterns = [
     path('report/<int:pk>/delete/', views.evaluation_delete, name='evaluation_delete'),
     path('report/<int:pk>/word/', views.export_word, name='export_word'),
     # API endpoints
+    path('api/reports/', views.get_reports, name='get_reports'),
     path('api/governorates/', views.get_governorates, name='get_governorates'),
     path('api/wilayats/', views.get_wilayats_by_governorate, name='get_wilayats'),
 ]
