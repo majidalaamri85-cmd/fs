@@ -5,13 +5,9 @@ pip install -r requirements.txt
 
 python manage.py collectstatic --no-input
 
-# Run migrations only when explicitly requested for an existing production database.
-if [ "${RUN_MIGRATIONS:-False}" = "True" ]; then
-	python manage.py migrate
-fi
+# Always run migrations (safe - only applies unapplied migrations).
+python manage.py migrate
 
-# Keep seeding optional to avoid modifying existing production databases.
-if [ "${RUN_SEED_DATA:-False}" = "True" ]; then
-	python manage.py seed_governorates
-	python manage.py seed_items
-fi
+# Always seed reference data (safe - uses update_or_create, no duplicates).
+python manage.py seed_governorates
+python manage.py seed_items
