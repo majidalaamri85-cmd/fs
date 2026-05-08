@@ -288,11 +288,12 @@ def save_evaluation_from_request(request, evaluation=None):
 def evaluation_form(request):
     db_error_message = ''
     try:
-        sections = Section.objects.prefetch_related('items').all()
-        governorates = Governorate.objects.all()
+        # Evaluate querysets eagerly so DB schema errors are caught here.
+        sections = list(Section.objects.prefetch_related('items').all())
+        governorates = list(Governorate.objects.all())
     except (OperationalError, ProgrammingError, DatabaseError):
-        sections = Section.objects.none()
-        governorates = Governorate.objects.none()
+        sections = []
+        governorates = []
         db_error_message = 'تعذر تحميل أقسام التقييم من قاعدة البيانات. تأكد من تطبيق migrations وتهيئة البيانات.'
     
     if request.method == 'POST':
@@ -318,14 +319,15 @@ def evaluation_edit(request, pk):
     evaluation = get_object_or_404(Evaluation, pk=pk)
     db_error_message = ''
     try:
-        sections = Section.objects.prefetch_related('items').all()
-        governorates = Governorate.objects.all()
-        wilayats = evaluation.governorate.wilayats.all() if evaluation.governorate else Wilayat.objects.none()
+        # Evaluate querysets eagerly so DB schema errors are caught here.
+        sections = list(Section.objects.prefetch_related('items').all())
+        governorates = list(Governorate.objects.all())
+        wilayats = list(evaluation.governorate.wilayats.all()) if evaluation.governorate else []
         responses_map = {r.item_id: r for r in evaluation.responses.all()}
     except (OperationalError, ProgrammingError, DatabaseError):
-        sections = Section.objects.none()
-        governorates = Governorate.objects.none()
-        wilayats = Wilayat.objects.none()
+        sections = []
+        governorates = []
+        wilayats = []
         responses_map = {}
         db_error_message = 'تعذر تحميل بيانات التقييم من قاعدة البيانات. تأكد من تطبيق migrations وتهيئة البيانات.'
 
