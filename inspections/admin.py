@@ -23,9 +23,9 @@ class SectionAdmin(admin.ModelAdmin):
 
 @admin.register(Item)
 class ItemAdmin(admin.ModelAdmin):
-    list_display = ('number', 'section', 'text')
-    search_fields = ('text',)
-    list_filter = ('section',)
+    list_display = ('number', 'section', 'priority', 'text')
+    search_fields = ('text', 'corrective_action')
+    list_filter = ('section', 'priority')
 
 class ResponseImageInline(admin.TabularInline):
     model = ResponseImage

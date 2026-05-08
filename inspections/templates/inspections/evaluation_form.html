@@ -112,6 +112,9 @@
             </select>
 
             <div class="non-box" {% if response.status == 'non_compliant' %}style="display:block"{% endif %}>
+                {% if item.priority %}
+                <div class="priority-badge">الأولوية: {{ item.priority }}</div>
+                {% endif %}
                 <textarea name="notes_{{ item.id }}" placeholder="الملاحظات">{{ response.notes|default:'' }}</textarea>
                 <textarea name="corrective_{{ item.id }}" placeholder="الإجراء التصحيحي">{{ response.corrective_action|default:item.corrective_action }}</textarea>
                 <input type="text" name="duration_{{ item.id }}" placeholder="تحديد مدة التصحيح" value="{{ response.correction_duration|default:'' }}">

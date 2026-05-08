@@ -519,23 +519,24 @@ def export_word(request, pk):
                 current_section = r.item.section_id
             add_section_heading(doc, f'\u200e{r.item.section.order}. {r.item.section.title}', fill='155E75')
 
-            item_table = doc.add_table(rows=1, cols=5)
+            item_table = doc.add_table(rows=1, cols=6)
             item_table.alignment = WD_TABLE_ALIGNMENT.CENTER
             item_table.style = 'Table Grid'
             set_table_rtl(item_table)
             hdr = item_table.rows[0].cells
-            headers = ['البند', 'الملاحظات', 'الإجراء التصحيحي', 'مدة التصحيح', 'الصور']
+            headers = ['البند', 'الأولوية', 'الملاحظات', 'الإجراء التصحيحي', 'مدة التصحيح', 'الصور']
             for cell, header in zip(hdr, headers):
                 set_cell_text(cell, header, bold=True)
             style_table_header(item_table.rows[0], fill='0F6B4B')
 
             row = item_table.add_row().cells
             set_cell_text(row[0], f'\u200e{r.item.number} - {r.item.text}')
-            set_cell_text(row[1], r.notes)
-            set_cell_text(row[2], r.corrective_action)
-            set_cell_text(row[3], r.correction_duration)
+            set_cell_text(row[1], r.item.priority)
+            set_cell_text(row[2], r.notes)
+            set_cell_text(row[3], r.corrective_action)
+            set_cell_text(row[4], r.correction_duration)
 
-            image_paragraph = row[4].paragraphs[0]
+            image_paragraph = row[5].paragraphs[0]
             image_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
             images_added = 0
             for image in r.images.all():
@@ -552,7 +553,7 @@ def export_word(request, pk):
                 except Exception:
                     continue
             if not images_added:
-                set_cell_text(row[4], 'لا توجد صور')
+                set_cell_text(row[5], 'لا توجد صور')
 
             doc.add_paragraph()
 

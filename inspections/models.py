@@ -44,6 +44,7 @@ class Item(models.Model):
     number = models.PositiveIntegerField(verbose_name='رقم البند')
     text = models.TextField(verbose_name='وصف البند')
     corrective_action = models.TextField(blank=True, verbose_name='الإجراء التصحيحي المقترح')
+    priority = models.CharField(max_length=50, blank=True, verbose_name='الأولوية')
 
     class Meta:
         ordering = ['number']
