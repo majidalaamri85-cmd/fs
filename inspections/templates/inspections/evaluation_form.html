@@ -5,6 +5,10 @@
 <form method="post" enctype="multipart/form-data" class="form-card">
 {% csrf_token %}
 
+{% if db_error_message %}
+<div class="alert alert-warning" role="alert">{{ db_error_message }}</div>
+{% endif %}
+
 <div class="score-live-panel" aria-live="polite">
     <span>الدرجة</span>
     <strong id="live-score">100%</strong>

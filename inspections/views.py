@@ -286,8 +286,14 @@ def save_evaluation_from_request(request, evaluation=None):
 
 
 def evaluation_form(request):
-    sections = Section.objects.prefetch_related('items').all()
-    governorates = Governorate.objects.all()
+    db_error_message = ''
+    try:
+        sections = Section.objects.prefetch_related('items').all()
+        governorates = Governorate.objects.all()
+    except (OperationalError, ProgrammingError, DatabaseError):
+        sections = Section.objects.none()
+        governorates = Governorate.objects.none()
+        db_error_message = 'تعذر تحميل أقسام التقييم من قاعدة البيانات. تأكد من تطبيق migrations وتهيئة البيانات.'
     
     if request.method == 'POST':
         evaluation = save_evaluation_from_request(request)
@@ -299,19 +305,29 @@ def evaluation_form(request):
         'evaluation': None,
         'responses_map': {},
         'governorates': governorates,
+        'wilayats': Wilayat.objects.none(),
         'activity_options': ACTIVITY_OPTIONS,
         'evaluation_team_options': EVALUATION_TEAM_OPTIONS,
         'haccp_rows': build_haccp_rows(None),
         'today': timezone.localdate(),
+        'db_error_message': db_error_message,
     })
 
 
 def evaluation_edit(request, pk):
     evaluation = get_object_or_404(Evaluation, pk=pk)
-    sections = Section.objects.prefetch_related('items').all()
-    governorates = Governorate.objects.all()
-    wilayats = evaluation.governorate.wilayats.all() if evaluation.governorate else Wilayat.objects.none()
-    responses_map = {r.item_id: r for r in evaluation.responses.all()}
+    db_error_message = ''
+    try:
+        sections = Section.objects.prefetch_related('items').all()
+        governorates = Governorate.objects.all()
+        wilayats = evaluation.governorate.wilayats.all() if evaluation.governorate else Wilayat.objects.none()
+        responses_map = {r.item_id: r for r in evaluation.responses.all()}
+    except (OperationalError, ProgrammingError, DatabaseError):
+        sections = Section.objects.none()
+        governorates = Governorate.objects.none()
+        wilayats = Wilayat.objects.none()
+        responses_map = {}
+        db_error_message = 'تعذر تحميل بيانات التقييم من قاعدة البيانات. تأكد من تطبيق migrations وتهيئة البيانات.'
 
     if request.method == 'POST':
         evaluation = save_evaluation_from_request(request, evaluation)
@@ -327,6 +343,7 @@ def evaluation_edit(request, pk):
         'activity_options': ACTIVITY_OPTIONS,
         'evaluation_team_options': EVALUATION_TEAM_OPTIONS,
         'haccp_rows': build_haccp_rows(evaluation),
+        'db_error_message': db_error_message,
     })
 
 
