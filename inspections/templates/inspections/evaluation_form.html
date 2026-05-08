@@ -5,10 +5,16 @@
 <form method="post" enctype="multipart/form-data" class="form-card">
 {% csrf_token %}
 
+<div class="score-live-panel" aria-live="polite">
+    <span>الدرجة</span>
+    <strong id="live-score">100%</strong>
+    <small>من 100</small>
+</div>
+
 <div class="section-card">
     <button type="button" class="section-toggle">
         تسجيل بيانات المنشأة
-        <span>+</span>
+        <span class="toggle-icon">+</span>
     </button>
 
     <div class="section-content">
@@ -87,7 +93,7 @@
 <div class="section-card">
     <button type="button" class="section-toggle">
         <span class="section-title-text"><span class="number-prefix">{{ section.order }}.</span> {{ section.title }}</span>
-        <span>+</span>
+        <span class="toggle-icon">+</span>
     </button>
 
     <div class="section-content">
@@ -109,7 +115,8 @@
                 <textarea name="notes_{{ item.id }}" placeholder="الملاحظات">{{ response.notes|default:'' }}</textarea>
                 <textarea name="corrective_{{ item.id }}" placeholder="الإجراء التصحيحي">{{ response.corrective_action|default:item.corrective_action }}</textarea>
                 <input type="text" name="duration_{{ item.id }}" placeholder="تحديد مدة التصحيح" value="{{ response.correction_duration|default:'' }}">
-                <input type="file" name="images_{{ item.id }}" multiple accept="image/*">
+                <input type="file" name="images_{{ item.id }}" multiple accept="image/*" class="image-input">
+                <div class="thumbs image-preview"></div>
 
                 {% if response %}
                 <div class="thumbs">
@@ -129,7 +136,7 @@
 <div class="section-card">
     <button type="button" class="section-toggle">
         مستندات الهاسب وشهادات أنظمة الجودة
-        <span>+</span>
+        <span class="toggle-icon">+</span>
     </button>
     <div class="section-content">
         <div class="haccp-cert-grid">
@@ -179,19 +186,40 @@
 document.querySelectorAll(".section-toggle").forEach(btn => {
     btn.addEventListener("click", function() {
         const content = this.nextElementSibling;
-        const icon = this.querySelector("span");
+        const icon = this.querySelector(".toggle-icon");
         const isOpen = content.style.display === "block";
         content.style.display = isOpen ? "none" : "block";
         icon.textContent = isOpen ? "+" : "-";
     });
 });
 
+function updateLiveScore() {
+    const scoreBox = document.getElementById("live-score");
+    const selects = [...document.querySelectorAll(".status-select")];
+    const scored = selects.filter(select => select.value !== "na");
+    const compliant = scored.filter(select => select.value === "compliant").length;
+    const score = scored.length ? Math.round((compliant / scored.length) * 100) : 0;
+
+    if (scoreBox) {
+        scoreBox.textContent = `${score}%`;
+    }
+}
+
 document.querySelectorAll(".status-select").forEach(select => {
     const box = select.closest(".item-card").querySelector(".non-box");
-    if(select.value === "non_compliant") box.style.display = "block";
+    const notes = box.querySelector("textarea[name^='notes_']");
+
+    function syncNonCompliantFields() {
+        const isNonCompliant = select.value === "non_compliant";
+        box.style.display = isNonCompliant ? "block" : "none";
+        if (notes) notes.required = isNonCompliant;
+        updateLiveScore();
+    }
+
+    syncNonCompliantFields();
 
     select.addEventListener("change", function() {
-        box.style.display = this.value === "non_compliant" ? "block" : "none";
+        syncNonCompliantFields();
     });
 });
 
@@ -201,10 +229,30 @@ document.querySelectorAll("input, select, textarea").forEach(field => {
         if (!content) return;
 
         content.style.display = "block";
-        const icon = content.previousElementSibling?.querySelector("span");
+        const icon = content.previousElementSibling?.querySelector(".toggle-icon");
         if (icon) icon.textContent = "-";
     });
 });
+
+document.querySelectorAll(".image-input").forEach(input => {
+    input.addEventListener("change", function() {
+        const preview = this.closest(".non-box").querySelector(".image-preview");
+        if (!preview) return;
+
+        preview.innerHTML = "";
+        [...this.files].forEach(file => {
+            if (!file.type.startsWith("image/")) return;
+
+            const img = document.createElement("img");
+            img.src = URL.createObjectURL(file);
+            img.alt = file.name;
+            img.onload = () => URL.revokeObjectURL(img.src);
+            preview.appendChild(img);
+        });
+    });
+});
+
+updateLiveScore();
 
 const teamInput = document.getElementById("team-member-input");
 const addTeamMemberButton = document.getElementById("add-team-member");
