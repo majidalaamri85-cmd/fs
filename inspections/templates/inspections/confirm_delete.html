@@ -5,8 +5,14 @@
 <p>هل تريد حذف تقرير المنشأة: <strong>{{ evaluation.facility_name }}</strong>؟</p>
 <form method="post">
     {% csrf_token %}
-    <button class="btn danger" type="submit">نعم، حذف</button>
-    <a class="btn" href="{% url 'report_detail' evaluation.pk %}">إلغاء</a>
+    <button class="btn danger" type="submit">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+        نعم، حذف
+    </button>
+    <a class="btn" href="{% url 'report_detail' evaluation.pk %}">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+        إلغاء
+    </a>
 </form>
 </div>
 {% endblock %}

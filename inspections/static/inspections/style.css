@@ -440,6 +440,7 @@ textarea{min-height:80px}
     font-weight:bold;
 }
 .btn{
+    position:relative;
     display:inline-flex;
     align-items:center;
     justify-content:center;
@@ -452,12 +453,30 @@ textarea{min-height:80px}
     color:#1f2933;
     cursor:pointer;
     font-weight:bold;
+    overflow:hidden;
     box-shadow:0 7px 16px rgba(31,41,51,.12),inset 0 1px 0 rgba(255,255,255,.8);
-    transition:transform .18s ease,box-shadow .18s ease,filter .18s ease;
+    transition:transform .18s ease,box-shadow .18s ease,filter .18s ease,background .2s ease;
+}
+.btn::after{
+    content:"";
+    position:absolute;
+    inset:0;
+    background:linear-gradient(115deg,transparent 0%,rgba(255,255,255,.36) 38%,transparent 58%);
+    transform:translateX(-125%);
+    transition:transform .45s ease;
+}
+.btn:hover::after{
+    transform:translateX(125%);
 }
 .btn:hover{
     box-shadow:0 10px 22px rgba(31,41,51,.16),inset 0 1px 0 rgba(255,255,255,.9);
     transform:translateY(-1px);
+}
+.btn .icon{
+    transition:transform .2s ease;
+}
+.btn:hover .icon{
+    transform:translateX(-2px);
 }
 .btn:active{
     transform:translateY(0);

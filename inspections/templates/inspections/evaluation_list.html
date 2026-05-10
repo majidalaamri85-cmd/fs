@@ -89,8 +89,14 @@
             <input type="number" step="0.1" min="0" max="100" name="max_score" value="{{ filters.max_score }}" placeholder="100">
         </label>
         <div class="page-actions compact-actions">
-            <button type="submit" class="btn primary">فلترة التقارير</button>
-            <a class="btn" href="{% url 'evaluation_list' %}">إعادة ضبط</a>
+            <button type="submit" class="btn primary">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 3H2l8 9v7l4 2v-9z"/></svg>
+                فلترة التقارير
+            </button>
+            <a class="btn" href="{% url 'evaluation_list' %}">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/></svg>
+                إعادة ضبط
+            </a>
         </div>
     </div>
     <p class="results-counter">عدد النتائج: {{ results_count }}</p>

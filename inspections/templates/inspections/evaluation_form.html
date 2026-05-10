@@ -24,8 +24,14 @@
 <div class="form-utilities">
     <input type="search" id="items-search" placeholder="بحث سريع داخل البنود...">
     <div class="page-actions compact-actions">
-        <button type="button" class="btn" id="expand-all">فتح كل الأقسام</button>
-        <button type="button" class="btn" id="collapse-all">طي كل الأقسام</button>
+        <button type="button" class="btn" id="expand-all">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8l8 8 8-8"/></svg>
+            فتح كل الأقسام
+        </button>
+        <button type="button" class="btn" id="collapse-all">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 16l8-8 8 8"/></svg>
+            طي كل الأقسام
+        </button>
     </div>
 </div>
 
@@ -246,12 +252,10 @@ function updateLiveScore() {
 
 document.querySelectorAll(".status-select").forEach(select => {
     const box = select.closest(".item-card").querySelector(".non-box");
-    const notes = box.querySelector("textarea[name^='notes_']");
 
     function syncNonCompliantFields() {
         const isNonCompliant = select.value === "non_compliant";
         box.style.display = isNonCompliant ? "block" : "none";
-        if (notes) notes.required = isNonCompliant;
         updateLiveScore();
     }
 
