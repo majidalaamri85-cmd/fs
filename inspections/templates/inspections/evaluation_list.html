@@ -7,13 +7,32 @@
     </a>
 </div>
 
+<div class="stats-grid">
+    <article class="stat-card">
+        <span>إجمالي التقارير</span>
+        <strong>{{ summary.total }}</strong>
+    </article>
+    <article class="stat-card">
+        <span>متوسط النتائج</span>
+        <strong>{{ summary.avg_score }}%</strong>
+    </article>
+    <article class="stat-card">
+        <span>مستوى ممتاز (86%+)</span>
+        <strong>{{ summary.excellent }}</strong>
+    </article>
+    <article class="stat-card warning">
+        <span>بحاجة متابعة (&lt; 70%)</span>
+        <strong>{{ summary.needs_attention }}</strong>
+    </article>
+</div>
+
 <div class="card">
 <h2>قائمة التقارير</h2>
 {% if db_error_message %}
 <div class="alert">{{ db_error_message }}</div>
 {% endif %}
-<form method="get" class="card" style="margin-bottom: 16px;">
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; align-items: end;">
+<form method="get" class="card filter-card">
+    <div class="filter-grid">
         <label>
             <span>بحث عام</span>
             <input type="text" name="q" value="{{ filters.q }}" placeholder="اسم المنشأة أو المسؤول أو رقم السجل">
@@ -26,12 +45,55 @@
             <span>رقم السجل التجاري</span>
             <input type="text" name="cr_number" value="{{ filters.cr_number }}" placeholder="أدخل رقم السجل التجاري">
         </label>
-        <div class="page-actions" style="margin: 0;">
+        <label>
+            <span>المحافظة</span>
+            <select name="governorate">
+                <option value="">الكل</option>
+                {% for gov in governorates %}
+                <option value="{{ gov.id }}" {% if filters.governorate == gov.id|stringformat:'s' %}selected{% endif %}>{{ gov.name }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <label>
+            <span>الحالة</span>
+            <select name="status">
+                <option value="">الكل</option>
+                <option value="final" {% if filters.status == 'final' %}selected{% endif %}>معتمد</option>
+                <option value="draft" {% if filters.status == 'draft' %}selected{% endif %}>مسودة</option>
+            </select>
+        </label>
+        <label>
+            <span>التصنيف</span>
+            <select name="classification">
+                <option value="">الكل</option>
+                <option value="ممتاز" {% if filters.classification == 'ممتاز' %}selected{% endif %}>ممتاز</option>
+                <option value="جيد" {% if filters.classification == 'جيد' %}selected{% endif %}>جيد</option>
+                <option value="مقبول" {% if filters.classification == 'مقبول' %}selected{% endif %}>مقبول</option>
+                <option value="ضعيف" {% if filters.classification == 'ضعيف' %}selected{% endif %}>ضعيف</option>
+            </select>
+        </label>
+        <label>
+            <span>من تاريخ</span>
+            <input type="date" name="date_from" value="{{ filters.date_from }}">
+        </label>
+        <label>
+            <span>إلى تاريخ</span>
+            <input type="date" name="date_to" value="{{ filters.date_to }}">
+        </label>
+        <label>
+            <span>أدنى نتيجة %</span>
+            <input type="number" step="0.1" min="0" max="100" name="min_score" value="{{ filters.min_score }}" placeholder="0">
+        </label>
+        <label>
+            <span>أعلى نتيجة %</span>
+            <input type="number" step="0.1" min="0" max="100" name="max_score" value="{{ filters.max_score }}" placeholder="100">
+        </label>
+        <div class="page-actions compact-actions">
             <button type="submit" class="btn primary">استجلاب التقارير</button>
             <a class="btn" href="{% url 'evaluation_list' %}">إعادة ضبط</a>
         </div>
     </div>
-    <p style="margin: 12px 0 0;">عدد النتائج: {{ results_count }}</p>
+    <p class="results-counter">عدد النتائج: {{ results_count }}</p>
 </form>
 <table class="data-table">
 <tr>
@@ -59,7 +121,7 @@
     </td>
 </tr>
 {% empty %}
-<tr><td colspan="6">لا توجد تقارير حتى الآن.</td></tr>
+<tr><td colspan="6" class="empty-cell">لا توجد تقارير مطابقة للمرشحات الحالية.</td></tr>
 {% endfor %}
 </table>
 </div>

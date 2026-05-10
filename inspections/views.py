@@ -3,7 +3,7 @@ from django.http import HttpResponse, JsonResponse
 from django.contrib import messages
 from django.conf import settings
 from django.utils import timezone
-from django.db.models import Q
+from django.db.models import Avg, Q
 from django.db.utils import DatabaseError, OperationalError, ProgrammingError
 from .models import Governorate, Wilayat, Section, Item, Evaluation, Response, ResponseImage
 from .activity_options import ACTIVITY_OPTIONS
@@ -16,6 +16,7 @@ from docx.shared import Inches, Mm, Pt, RGBColor
 from io import BytesIO
 from pathlib import Path
 import json
+from datetime import date
 
 EVALUATION_TEAM_OPTIONS = [
     'عياض المعولي',
@@ -119,68 +120,152 @@ def calculate_score(evaluation):
     evaluation.save()
 
 
+def parse_iso_date(value):
+    if not value:
+        return None
+    try:
+        return date.fromisoformat(value)
+    except ValueError:
+        return None
+
+
+def parse_float(value):
+    if value in (None, ''):
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def apply_evaluation_filters(queryset, filters):
+    query = filters.get('q', '').strip()
+    license_number = filters.get('license_number', '').strip()
+    cr_number = filters.get('cr_number', '').strip()
+    governorate_id = filters.get('governorate', '').strip()
+    classification = filters.get('classification', '').strip()
+    status = filters.get('status', '').strip()
+    date_from = parse_iso_date(filters.get('date_from', '').strip())
+    date_to = parse_iso_date(filters.get('date_to', '').strip())
+    min_score = parse_float(filters.get('min_score', '').strip())
+    max_score = parse_float(filters.get('max_score', '').strip())
+
+    if query:
+        queryset = queryset.filter(
+            Q(facility_name__icontains=query)
+            | Q(contact_name__icontains=query)
+            | Q(license_number__icontains=query)
+            | Q(cr_number__icontains=query)
+        )
+
+    if license_number:
+        queryset = queryset.filter(license_number__icontains=license_number)
+
+    if cr_number:
+        queryset = queryset.filter(cr_number__icontains=cr_number)
+
+    if governorate_id.isdigit():
+        queryset = queryset.filter(governorate_id=int(governorate_id))
+
+    if classification:
+        queryset = queryset.filter(classification__icontains=classification)
+
+    if status == 'draft':
+        queryset = queryset.filter(is_draft=True)
+    elif status == 'final':
+        queryset = queryset.filter(is_draft=False)
+
+    if date_from:
+        queryset = queryset.filter(visit_date__gte=date_from)
+
+    if date_to:
+        queryset = queryset.filter(visit_date__lte=date_to)
+
+    if min_score is not None:
+        queryset = queryset.filter(score__gte=min_score)
+
+    if max_score is not None:
+        queryset = queryset.filter(score__lte=max_score)
+
+    return queryset
+
+
+def get_evaluation_summary(queryset):
+    total = queryset.count()
+    avg_score = queryset.aggregate(avg=Avg('score')).get('avg') or 0
+    return {
+        'total': total,
+        'avg_score': round(avg_score, 1),
+        'excellent': queryset.filter(score__gte=86).count(),
+        'needs_attention': queryset.filter(score__lt=70).count(),
+    }
+
+
+def resolve_location(gov_id, wilayat_id):
+    governorate = Governorate.objects.filter(id=gov_id).first() if gov_id else None
+    wilayat = Wilayat.objects.filter(id=wilayat_id).first() if wilayat_id else None
+
+    if wilayat and governorate and wilayat.governorate_id != governorate.id:
+        wilayat = None
+    if wilayat and not governorate:
+        governorate = wilayat.governorate
+
+    return governorate, wilayat
+
+
 def evaluation_list(request):
-    query = request.GET.get('q', '').strip()
-    license_number = request.GET.get('license_number', '').strip()
-    cr_number = request.GET.get('cr_number', '').strip()
+    filters = {
+        'q': request.GET.get('q', '').strip(),
+        'license_number': request.GET.get('license_number', '').strip(),
+        'cr_number': request.GET.get('cr_number', '').strip(),
+        'governorate': request.GET.get('governorate', '').strip(),
+        'classification': request.GET.get('classification', '').strip(),
+        'status': request.GET.get('status', '').strip(),
+        'date_from': request.GET.get('date_from', '').strip(),
+        'date_to': request.GET.get('date_to', '').strip(),
+        'min_score': request.GET.get('min_score', '').strip(),
+        'max_score': request.GET.get('max_score', '').strip(),
+    }
 
     error_message = ''
     try:
-        evaluations = Evaluation.objects.all()
-
-        if query:
-            evaluations = evaluations.filter(
-                Q(facility_name__icontains=query)
-                | Q(contact_name__icontains=query)
-                | Q(license_number__icontains=query)
-                | Q(cr_number__icontains=query)
-            )
-
-        if license_number:
-            evaluations = evaluations.filter(license_number__icontains=license_number)
-
-        if cr_number:
-            evaluations = evaluations.filter(cr_number__icontains=cr_number)
-
+        evaluations = apply_evaluation_filters(Evaluation.objects.all(), filters)
         results_count = evaluations.count()
+        summary = get_evaluation_summary(evaluations)
+        governorates = Governorate.objects.all()
     except (OperationalError, ProgrammingError, DatabaseError):
         evaluations = Evaluation.objects.none()
         results_count = 0
+        summary = {'total': 0, 'avg_score': 0, 'excellent': 0, 'needs_attention': 0}
+        governorates = Governorate.objects.none()
         error_message = 'تعذر استجلاب التقارير من قاعدة البيانات. تأكد من اتصال DATABASE_URL وتطبيق migrations المطلوبة.'
 
     return render(request, 'inspections/evaluation_list.html', {
         'evaluations': evaluations,
-        'filters': {
-            'q': query,
-            'license_number': license_number,
-            'cr_number': cr_number,
-        },
+        'filters': filters,
         'results_count': results_count,
+        'summary': summary,
+        'governorates': governorates,
         'db_error_message': error_message,
     })
 
 
 def get_reports(request):
-    query = request.GET.get('q', '').strip()
-    license_number = request.GET.get('license_number', '').strip()
-    cr_number = request.GET.get('cr_number', '').strip()
+    filters = {
+        'q': request.GET.get('q', '').strip(),
+        'license_number': request.GET.get('license_number', '').strip(),
+        'cr_number': request.GET.get('cr_number', '').strip(),
+        'governorate': request.GET.get('governorate', '').strip(),
+        'classification': request.GET.get('classification', '').strip(),
+        'status': request.GET.get('status', '').strip(),
+        'date_from': request.GET.get('date_from', '').strip(),
+        'date_to': request.GET.get('date_to', '').strip(),
+        'min_score': request.GET.get('min_score', '').strip(),
+        'max_score': request.GET.get('max_score', '').strip(),
+    }
 
     try:
-        evaluations = Evaluation.objects.all()
-
-        if query:
-            evaluations = evaluations.filter(
-                Q(facility_name__icontains=query)
-                | Q(contact_name__icontains=query)
-                | Q(license_number__icontains=query)
-                | Q(cr_number__icontains=query)
-            )
-
-        if license_number:
-            evaluations = evaluations.filter(license_number__icontains=license_number)
-
-        if cr_number:
-            evaluations = evaluations.filter(cr_number__icontains=cr_number)
+        evaluations = apply_evaluation_filters(Evaluation.objects.all(), filters)
     except (OperationalError, ProgrammingError, DatabaseError):
         return JsonResponse({
             'reports': [],
@@ -224,12 +309,10 @@ def save_evaluation_from_request(request, evaluation=None):
         'other_quality_certificate',
     ]
     
-    # Get governorate and wilayat IDs from POST
+    # Resolve location safely even if posted IDs are invalid.
     gov_id = request.POST.get('governorate')
     wilayat_id = request.POST.get('wilayat')
-    
-    governorate = Governorate.objects.get(id=gov_id) if gov_id else None
-    wilayat = Wilayat.objects.get(id=wilayat_id) if wilayat_id else None
+    governorate, wilayat = resolve_location(gov_id, wilayat_id)
 
     if evaluation is None:
         evaluation = Evaluation.objects.create(
