@@ -304,6 +304,14 @@ body{
 }
 .compact-actions{
     margin:0;
+    display:flex;
+    flex-wrap:nowrap;
+    align-items:center;
+    gap:10px;
+    justify-content:flex-start;
+}
+.compact-actions .btn{
+    white-space:nowrap;
 }
 .results-counter{
     margin:12px 0 0;
