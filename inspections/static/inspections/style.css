@@ -5,6 +5,7 @@
     --brand-strong:#0b5f45;
     --ink:#1f2933;
     --border:#d9e2df;
+    --touch-target:44px;
 }
 
 *{box-sizing:border-box}
@@ -14,6 +15,50 @@ body{
     font-family:'Cairo', Tahoma, sans-serif;
     background:linear-gradient(180deg,#eef7f2 0,#f7faf8 260px,#f3f7f5 100%);
     color:var(--ink);
+    -webkit-text-size-adjust:100%;
+    -webkit-font-smoothing:antialiased;
+}
+
+/* Disable hover effects on touch devices */
+@media(hover:none){
+    .btn:hover,
+    .topbar a:hover,
+    .action-link:hover,
+    .section-toggle:hover{
+        transform:none;
+        filter:none;
+    }
+}
+
+/* Improve touch interactions */
+button,
+a,
+input[type="button"],
+input[type="submit"],
+input[type="reset"]{
+    -webkit-tap-highlight-color:transparent;
+}
+
+/* Focus styles for accessibility */
+*:focus-visible{
+    outline-width:2px;
+}
+
+/* Better input handling on mobile */
+input,select,textarea{
+    -webkit-appearance:none;
+    -moz-appearance:none;
+    appearance:none;
+    border-radius:12px;
+}
+
+select{
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;
+    background-position:left 12px center;
+    background-size:18px;
+    padding-right:40px;
+    padding-left:12px;
 }
 .topbar{
     position:relative;
@@ -95,6 +140,8 @@ body{
     justify-content:center;
     gap:8px;
     transition:transform .18s ease,background .18s ease,box-shadow .18s ease;
+    min-height:44px;
+    min-width:44px;
 }
 .topbar a:hover{
     background:rgba(255,255,255,.2);
@@ -332,6 +379,9 @@ body{
 }
 .haccp-table-wrap{
     overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+    margin:-4px;
+    padding:4px;
 }
 .haccp-table th,
 .haccp-table td{
@@ -456,6 +506,8 @@ textarea{min-height:80px}
     overflow:hidden;
     box-shadow:0 7px 16px rgba(31,41,51,.12),inset 0 1px 0 rgba(255,255,255,.8);
     transition:transform .18s ease,box-shadow .18s ease,filter .18s ease,background .2s ease;
+    min-height:44px;
+    min-width:44px;
 }
 .btn::after{
     content:"";
@@ -506,6 +558,15 @@ textarea{min-height:80px}
 }
 .card > .data-table{
     min-width:900px;
+}
+
+/* Mobile table wrapper */
+.table-responsive{
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+    margin:-4px;
+    padding:4px;
+    border-radius:12px;
 }
 .data-table th{
     background:var(--brand);
@@ -619,31 +680,511 @@ textarea{min-height:80px}
     font-weight:bold;
 }
 .draft-box input{width:auto}
-@media(max-width:700px){
-    .topbar{display:block}
-    .brand-block{align-items:center}
+/* ============================================
+   TABLET RESPONSIVE (max-width: 1024px)
+   ============================================ */
+@media(max-width:1024px){
+    .container{
+        max-width:100%;
+        padding:0 12px;
+    }
+    .stats-grid{
+        grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
+    }
+    .filter-grid{
+        grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
+    }
+}
+
+/* ============================================
+   MOBILE RESPONSIVE (max-width: 768px)
+   ============================================ */
+@media(max-width:768px){
+    .topbar{
+        display:block;
+        padding:12px 16px;
+    }
+    .brand-block{
+        align-items:center;
+        gap:8px;
+        margin-bottom:12px;
+    }
+    .topbar h1{
+        font-size:18px;
+        margin:0;
+    }
+    .topbar p{
+        font-size:12px;
+        margin:4px 0 0;
+    }
     .header-logo{
-        width:128px !important;
-        height:46px !important;
+        width:100px !important;
+        height:36px !important;
     }
     .topbar-actions{
-        align-items:flex-start;
+        align-items:stretch;
         display:flex;
         flex-direction:column;
-        gap:12px;
-        margin-top:14px;
+        gap:10px;
+        width:100%;
     }
     .topbar nav{
         width:100%;
         display:grid;
         grid-template-columns:1fr 1fr;
+        gap:10px;
     }
-    .topbar a{text-align:center}
-    .team-picker-row{grid-template-columns:1fr}
-    .form-utilities{grid-template-columns:1fr}
+    .topbar a{
+        text-align:center;
+        padding:10px 12px;
+        font-size:14px;
+    }
     .site-clock{
         min-width:0;
         width:100%;
+        padding:8px 12px;
+        font-size:12px;
     }
-    .report-header{display:block}
+    .site-clock span{
+        font-size:18px;
+    }
+    .site-clock small{
+        font-size:11px;
+        margin-top:2px;
+    }
+    
+    /* Form and Layout */
+    .container{
+        margin:15px auto;
+        padding:0 10px;
+    }
+    .card,.form-card{
+        padding:16px;
+        margin-bottom:12px;
+        border-radius:14px;
+    }
+    
+    /* Grid Adjustments */
+    .grid,.info-grid,.stats-grid,.filter-grid{
+        grid-template-columns:1fr;
+        gap:10px;
+    }
+    .stats-grid{
+        gap:8px;
+    }
+    .stat-card{
+        padding:12px;
+        font-size:13px;
+    }
+    .stat-card strong{
+        font-size:24px;
+    }
+    .extra-info-grid{
+        margin-top:10px;
+        padding-top:10px;
+    }
+    
+    /* Forms and Inputs */
+    input,select,textarea{
+        padding:10px;
+        font-size:16px;
+        border-radius:10px;
+    }
+    textarea{
+        min-height:70px;
+    }
+    
+    /* Buttons */
+    .btn{
+        padding:10px 16px;
+        font-size:14px;
+        min-height:44px;
+        min-width:44px;
+    }
+    .topbar a{
+        min-height:44px;
+    }
+    .page-actions{
+        gap:8px;
+        margin-bottom:12px;
+    }
+    .compact-actions{
+        gap:8px;
+    }
+    .compact-actions .btn{
+        padding:8px 12px;
+        font-size:13px;
+    }
+    
+    /* Section Cards */
+    .section-card{
+        margin:12px 0;
+    }
+    .section-toggle{
+        padding:12px 16px;
+        font-size:16px;
+    }
+    .section-content{
+        padding:12px;
+    }
+    .item-card{
+        padding:12px;
+        margin-bottom:10px;
+    }
+    
+    /* Score Panel */
+    .score-live-panel{
+        flex-direction:column;
+        padding:10px;
+        margin-bottom:12px;
+        font-size:13px;
+    }
+    .score-main strong{
+        font-size:24px;
+    }
+    .score-meta{
+        gap:8px;
+    }
+    .score-meta span{
+        font-size:12px;
+        padding:4px 8px;
+    }
+    
+    /* Form Utilities */
+    .form-utilities{
+        grid-template-columns:1fr;
+        gap:8px;
+    }
+    #items-search{
+        font-size:14px;
+    }
+    
+    /* Team Picker */
+    .team-picker{
+        padding:10px;
+        margin-top:10px;
+    }
+    .team-picker-row{
+        grid-template-columns:1fr;
+        gap:8px;
+    }
+    .team-members{
+        gap:6px;
+    }
+    .team-chip{
+        padding:6px 8px;
+        font-size:13px;
+    }
+    
+    /* Report Header */
+    .report-header{
+        display:flex;
+        flex-direction:column;
+        gap:12px;
+    }
+    .report-header h2{
+        font-size:18px;
+    }
+    .score-box{
+        min-width:auto;
+        max-width:100%;
+        padding:12px 20px;
+    }
+    .score-box div{
+        font-size:28px;
+    }
+    
+    /* Tables */
+    .card > .data-table{
+        min-width:100%;
+        font-size:13px;
+    }
+    .data-table th,.data-table td{
+        padding:10px 8px;
+    }
+    .number-prefix{
+        font-size:12px;
+    }
+    
+    /* Images and Thumbnails */
+    .thumbs img{
+        width:60px;
+        height:60px;
+    }
+    
+    /* Badges */
+    .badge,.priority-badge{
+        font-size:12px;
+        padding:4px 8px;
+    }
+}
+
+/* ============================================
+   SMALL MOBILE (max-width: 600px)
+   ============================================ */
+@media(max-width:600px){
+    body{
+        font-size:14px;
+    }
+    
+    /* Header */
+    .topbar{padding:10px 12px}
+    .topbar h1{font-size:16px}
+    .topbar p{font-size:11px}
+    .header-logo{
+        width:90px !important;
+        height:32px !important;
+    }
+    
+    /* Container */
+    .container{
+        margin:10px auto;
+        padding:0 8px;
+    }
+    
+    /* Cards */
+    .card,.form-card{
+        padding:12px;
+        margin-bottom:10px;
+        border-radius:12px;
+    }
+    
+    /* Grid to Single Column */
+    .grid,.info-grid,.stats-grid,.filter-grid{
+        grid-template-columns:1fr;
+    }
+    
+    /* Stat Cards */
+    .stat-card{
+        padding:10px;
+        font-size:12px;
+    }
+    .stat-card strong{
+        font-size:20px;
+        margin-top:2px;
+    }
+    
+    /* Form Elements */
+    input,select,textarea{
+        padding:9px;
+        font-size:16px;
+        border-radius:8px;
+        margin-bottom:8px;
+    }
+    
+    /* Buttons - Touch Friendly */
+    .btn{
+        padding:10px 14px;
+        font-size:13px;
+        min-height:44px;
+        width:100%;
+    }
+    .page-actions .btn,
+    .compact-actions .btn{
+        width:auto;
+    }
+    
+    /* Section Toggle */
+    .section-toggle{
+        padding:10px 12px;
+        font-size:14px;
+    }
+    .toggle-icon{
+        width:26px;
+        height:26px;
+        font-size:16px;
+    }
+    
+    /* Score Panel */
+    .score-live-panel{
+        padding:8px;
+        margin-bottom:10px;
+        font-size:12px;
+    }
+    .score-main strong{
+        font-size:22px;
+    }
+    
+    /* Search Input */
+    #items-search{
+        width:100%;
+        margin-bottom:8px;
+        font-size:14px;
+    }
+    
+    /* Report Header */
+    .report-header h2{
+        font-size:16px;
+    }
+    .score-box{
+        padding:10px 16px;
+        border-radius:14px;
+    }
+    .score-box div{
+        font-size:24px;
+    }
+    .score-box span{
+        font-size:12px;
+    }
+    
+    /* Table Scrolling */
+    .haccp-table-wrap,
+    .card > .data-table{
+        font-size:12px;
+        overflow-x:auto;
+    }
+    .data-table th,.data-table td{
+        padding:8px 6px;
+    }
+    .data-table{
+        min-width:100%;
+    }
+    
+    /* Images */
+    .thumbs img{
+        width:50px;
+        height:50px;
+    }
+    
+    /* Actions */
+    .table-actions{
+        flex-direction:column;
+        gap:6px;
+    }
+    .action-link{
+        font-size:12px;
+        width:100%;
+    }
+}
+
+/* ============================================
+   EXTRA SMALL MOBILE (max-width: 480px)
+   ============================================ */
+@media(max-width:480px){
+    body{
+        font-size:13px;
+    }
+    
+    /* Header */
+    .topbar{
+        padding:8px;
+        gap:12px;
+    }
+    .topbar h1{
+        font-size:14px;
+        line-height:1.2;
+    }
+    .topbar p{
+        font-size:10px;
+        margin-top:2px;
+    }
+    .header-logo{
+        width:80px !important;
+        height:28px !important;
+    }
+    .brand-block{
+        gap:6px;
+    }
+    
+    /* Container */
+    .container{
+        margin:8px auto;
+        padding:0 6px;
+    }
+    
+    /* Cards */
+    .card,.form-card{
+        padding:10px;
+        margin-bottom:8px;
+    }
+    
+    /* Headings */
+    .card h2,.card h3{
+        font-size:15px;
+        margin:0 0 10px 0;
+    }
+    
+    /* Form Elements */
+    input,select,textarea{
+        padding:8px;
+        font-size:16px;
+        margin-bottom:6px;
+    }
+    
+    /* Buttons */
+    .btn{
+        padding:9px 12px;
+        font-size:12px;
+        min-height:40px;
+    }
+    .btn .icon{
+        width:16px;
+        height:16px;
+    }
+    
+    /* Section */
+    .section-toggle{
+        padding:8px 10px;
+        font-size:13px;
+        gap:10px;
+    }
+    .toggle-icon{
+        width:24px;
+        height:24px;
+        font-size:14px;
+    }
+    
+    /* Score Panel */
+    .score-live-panel{
+        padding:6px;
+        font-size:11px;
+        gap:6px;
+    }
+    .score-main strong{
+        font-size:20px;
+    }
+    .score-meta span{
+        font-size:10px;
+        padding:3px 6px;
+    }
+    
+    /* Grid Items */
+    .stat-card{
+        padding:8px;
+        font-size:11px;
+    }
+    .stat-card strong{
+        font-size:18px;
+    }
+    
+    /* Item Card */
+    .item-card{
+        padding:10px;
+        margin-bottom:8px;
+    }
+    .item-title strong{
+        padding:6px 10px;
+        font-size:12px;
+    }
+    
+    /* Table */
+    .data-table th,.data-table td{
+        padding:6px 4px;
+        font-size:11px;
+    }
+    
+    /* Images */
+    .thumbs img{
+        width:45px;
+        height:45px;
+    }
+    
+    /* Team Picker */
+    .team-picker{
+        padding:8px;
+    }
+    .team-chip{
+        font-size:11px;
+        padding:5px 6px;
+    }
 }
