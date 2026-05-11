@@ -1392,3 +1392,85 @@ textarea{min-height:80px}
         height:18px;
     }
 }
+
+/* ============================================
+   HUAWEI OPTIMIZATION & EXTRA IMPROVEMENTS
+   ============================================ */
+
+/* Enhanced touch support for Huawei devices */
+.image-camera-btn,
+.image-gallery-btn,
+.btn {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+}
+
+/* Ensure camera buttons are always clickable */
+.image-upload-buttons button {
+    -webkit-user-select: none;
+    user-select: none;
+    cursor: pointer;
+}
+
+/* Hidden file inputs should be accessible */
+input[type="file"][style*="display:none"],
+.image-camera-input,
+.image-camera-input-fallback,
+.image-input {
+    visibility: hidden;
+    position: absolute;
+    width: 0;
+    height: 0;
+    left: -9999px;
+}
+
+/* Improve visibility of image container */
+.image-upload-container {
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+/* Ensure buttons don't get disabled on Huawei */
+button:not(:disabled) {
+    pointer-events: auto;
+}
+
+/* Fix for some Huawei devices with font issues */
+@supports (-webkit-appearance: none) {
+    body {
+        -webkit-font-smoothing: subpixel-antialiased;
+    }
+}
+
+/* Better focus states for accessibility on mobile */
+input:focus,
+select:focus,
+textarea:focus,
+button:focus {
+    outline: 2px solid var(--brand);
+    outline-offset: 2px;
+}
+
+/* Remove default blue highlight on Huawei */
+*:focus {
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* Ensure proper image rendering */
+img {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-user-drag: none;
+}
+
+/* Better button spacing for touch devices */
+@media (hover: none) and (pointer: coarse) {
+    .image-camera-btn,
+    .image-gallery-btn,
+    button[type="button"],
+    button[type="submit"] {
+        min-height: 48px;
+        min-width: 48px;
+        padding: 12px 16px;
+    }
+}

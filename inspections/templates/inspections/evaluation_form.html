@@ -157,7 +157,10 @@
                         </button>
                     </div>
                     <input type="file" name="images_{{ item.id }}" multiple accept="image/*" class="image-input" style="display:none">
+                    <!-- Primary: Back camera (environment) -->
                     <input type="file" class="image-camera-input" accept="image/*" capture="environment" style="display:none">
+                    <!-- Fallback: Front camera for devices that don't support environment (like some Huawei phones) -->
+                    <input type="file" class="image-camera-input-fallback" accept="image/*" capture="user" style="display:none">
                 </div>
                 
                 <!-- Image Preview with delete functionality -->
@@ -313,7 +316,30 @@ document.querySelectorAll(".image-camera-btn").forEach(btn => {
         e.preventDefault();
         const container = this.closest(".image-upload-container");
         const cameraInput = container.querySelector(".image-camera-input");
-        if (cameraInput) cameraInput.click();
+        const fallbackInput = container.querySelector(".image-camera-input-fallback");
+        
+        if (cameraInput) {
+            // Try primary camera input
+            cameraInput.addEventListener('change', handleCameraInputChange, { once: true });
+            cameraInput.addEventListener('cancel', function() {
+                // If user cancelled, try fallback
+                if (fallbackInput) {
+                    console.log('📸 Primary camera cancelled, trying fallback (user camera)');
+                    fallbackInput.click();
+                }
+            }, { once: true });
+            
+            try {
+                cameraInput.click();
+            } catch (error) {
+                console.error('❌ Error with primary camera:', error);
+                // Try fallback immediately on error
+                if (fallbackInput) {
+                    console.log('📸 Primary camera error, trying fallback (user camera)');
+                    fallbackInput.click();
+                }
+            }
+        }
     });
 });
 
@@ -326,28 +352,36 @@ document.querySelectorAll(".image-gallery-btn").forEach(btn => {
     });
 });
 
-// Handle camera input
-document.querySelectorAll(".image-camera-input").forEach(input => {
-    input.addEventListener("change", function() {
-        if (this.files.length > 0) {
-            const imageInput = this.closest(".image-upload-container").querySelector(".image-input");
-            // Create a new DataTransfer to add files
-            const dataTransfer = new DataTransfer();
-            
-            // Add existing files
-            for (let file of imageInput.files) {
-                dataTransfer.items.add(file);
-            }
-            
-            // Add camera captured file
-            for (let file of this.files) {
-                dataTransfer.items.add(file);
-            }
-            
-            imageInput.files = dataTransfer.files;
-            handleImageUpload(imageInput);
+// Handler function for camera input change
+function handleCameraInputChange() {
+    if (this.files.length > 0) {
+        const imageInput = this.closest(".image-upload-container").querySelector(".image-input");
+        // Create a new DataTransfer to add files
+        const dataTransfer = new DataTransfer();
+        
+        // Add existing files
+        for (let file of imageInput.files) {
+            dataTransfer.items.add(file);
         }
-    });
+        
+        // Add camera captured file
+        for (let file of this.files) {
+            dataTransfer.items.add(file);
+        }
+        
+        imageInput.files = dataTransfer.files;
+        handleImageUpload(imageInput);
+    }
+}
+
+// Attach handler to primary camera input
+document.querySelectorAll(".image-camera-input").forEach(input => {
+    input.addEventListener("change", handleCameraInputChange);
+});
+
+// Attach handler to fallback camera input
+document.querySelectorAll(".image-camera-input-fallback").forEach(input => {
+    input.addEventListener("change", handleCameraInputChange);
 });
 
 function handleImageUpload(input) {
