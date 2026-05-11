@@ -130,7 +130,8 @@
             </div>
 
             <select name="status_{{ item.id }}" class="status-select">
-                <option value="compliant" {% if response.status == 'compliant' or not response %}selected{% endif %}>مستوفي</option>
+                <option value="" {% if not response %}selected{% endif %}>اختر الحالة</option>
+                <option value="compliant" {% if response.status == 'compliant' %}selected{% endif %}>مستوفي</option>
                 <option value="non_compliant" {% if response.status == 'non_compliant' %}selected{% endif %}>غير مستوفي</option>
                 <option value="na" {% if response.status == 'na' %}selected{% endif %}>لا ينطبق</option>
             </select>
@@ -257,7 +258,7 @@ function updateLiveScore() {
     const completedBox = document.getElementById("completed-items");
     const nonCompliantBox = document.getElementById("non-compliant-items");
     const selects = [...document.querySelectorAll(".status-select")];
-    const scored = selects.filter(select => select.value !== "na");
+    const scored = selects.filter(select => select.value === "compliant" || select.value === "non_compliant");
     const compliant = scored.filter(select => select.value === "compliant").length;
     const nonCompliant = selects.filter(select => select.value === "non_compliant").length;
     const score = scored.length ? Math.round((compliant / scored.length) * 100) : 0;

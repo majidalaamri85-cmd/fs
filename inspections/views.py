@@ -19,13 +19,13 @@ import json
 from datetime import date
 
 EVALUATION_TEAM_OPTIONS = [
-    'عياض المعولي',
-    'متعب المعمري',
-    'ماجد العامري',
-    'سالم الحارثي',
-    'عام الحبسي',
-    'أحمد المريكي',
-    'د. يوسف أحمد محمد',
+    'م. سالم الحارثي (مدير دائرة تطوير نظم سلامة الغذاء)',
+    'م. عامر الحبسي (المدير المساعد لدائرة تطوير نظم سلامة الغذاء)',
+    'م. ماجد العامري (رئيس قسم نظم سلامة الغذاء)',
+    'م. عياض المعولي (رئيس قسم تطبيق نظم سلامة الغذاء)',
+    'م. متعب المعمري (رئيس قسم تأهيل المنشآت الغذائية)',
+    'د. يوسف أحمد محمد (طبيب بيطري)',
+    'م. أحمد المريكي (مفتش صحي)',
 ]
 
 HACCP_REQUIREMENTS = [
@@ -349,7 +349,12 @@ def save_evaluation_from_request(request, evaluation=None):
 
     for section in sections:
         for item in section.items.all():
-            status = request.POST.get(f'status_{item.id}', 'compliant')
+            status = request.POST.get(f'status_{item.id}', '').strip()
+
+            if not status:
+                Response.objects.filter(evaluation=evaluation, item=item).delete()
+                continue
+
             response, created = Response.objects.update_or_create(
                 evaluation=evaluation,
                 item=item,
