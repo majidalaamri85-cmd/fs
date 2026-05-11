@@ -142,16 +142,39 @@
                 <textarea name="notes_{{ item.id }}" placeholder="الملاحظات">{{ response.notes|default:'' }}</textarea>
                 <textarea name="corrective_{{ item.id }}" placeholder="الإجراء التصحيحي">{{ response.corrective_action|default:item.corrective_action }}</textarea>
                 <input type="text" name="duration_{{ item.id }}" placeholder="تحديد مدة التصحيح" value="{{ response.correction_duration|default:'' }}">
-                <input type="file" name="images_{{ item.id }}" multiple accept="image/*" class="image-input">
-                <div class="thumbs image-preview"></div>
-
-                {% if response %}
-                <div class="thumbs">
-                    {% for img in response.images.all %}
-                    <img src="{{ img.image.url }}" alt="صورة مخالفة">
-                    {% endfor %}
+                
+                <!-- Image Upload with improved mobile support -->
+                <div class="image-upload-container">
+                    <div class="image-upload-buttons">
+                        <button type="button" class="btn image-camera-btn" title="التقط صورة مباشرة">
+                            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                            التقط صورة
+                        </button>
+                        <button type="button" class="btn image-gallery-btn" title="اختر من المعرض">
+                            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 19V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2z"/><rect x="3" y="3" width="18" height="18"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+                            من المعرض
+                        </button>
+                    </div>
+                    <input type="file" name="images_{{ item.id }}" multiple accept="image/*" class="image-input" style="display:none">
+                    <input type="file" class="image-camera-input" accept="image/*" capture="environment" style="display:none">
                 </div>
-                {% endif %}
+                
+                <!-- Image Preview with delete functionality -->
+                <div class="images-preview-container">
+                    <div class="thumbs image-preview"></div>
+                    {% if response %}
+                    <div class="thumbs existing-images">
+                        {% for img in response.images.all %}
+                        <div class="image-item" data-img-id="{{ img.id }}">
+                            <img src="{{ img.image.url }}" alt="صورة مخالفة">
+                            <button type="button" class="img-delete-btn" title="حذف الصورة">
+                                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg>
+                            </button>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
             </div>
         </div>
         {% endwith %}
@@ -279,21 +302,101 @@ document.querySelectorAll("input, select, textarea").forEach(field => {
 
 document.querySelectorAll(".image-input").forEach(input => {
     input.addEventListener("change", function() {
-        const preview = this.closest(".non-box").querySelector(".image-preview");
-        if (!preview) return;
-
-        preview.innerHTML = "";
-        [...this.files].forEach(file => {
-            if (!file.type.startsWith("image/")) return;
-
-            const img = document.createElement("img");
-            img.src = URL.createObjectURL(file);
-            img.alt = file.name;
-            img.onload = () => URL.revokeObjectURL(img.src);
-            preview.appendChild(img);
-        });
+        handleImageUpload(this);
     });
 });
+
+// Handle camera and gallery buttons
+document.querySelectorAll(".image-camera-btn").forEach(btn => {
+    btn.addEventListener("click", function(e) {
+        e.preventDefault();
+        const container = this.closest(".image-upload-container");
+        const cameraInput = container.querySelector(".image-camera-input");
+        if (cameraInput) cameraInput.click();
+    });
+});
+
+document.querySelectorAll(".image-gallery-btn").forEach(btn => {
+    btn.addEventListener("click", function(e) {
+        e.preventDefault();
+        const container = this.closest(".image-upload-container");
+        const fileInput = container.querySelector(".image-input");
+        if (fileInput) fileInput.click();
+    });
+});
+
+// Handle camera input
+document.querySelectorAll(".image-camera-input").forEach(input => {
+    input.addEventListener("change", function() {
+        if (this.files.length > 0) {
+            const imageInput = this.closest(".image-upload-container").querySelector(".image-input");
+            // Create a new DataTransfer to add files
+            const dataTransfer = new DataTransfer();
+            
+            // Add existing files
+            for (let file of imageInput.files) {
+                dataTransfer.items.add(file);
+            }
+            
+            // Add camera captured file
+            for (let file of this.files) {
+                dataTransfer.items.add(file);
+            }
+            
+            imageInput.files = dataTransfer.files;
+            handleImageUpload(imageInput);
+        }
+    });
+});
+
+function handleImageUpload(input) {
+    const preview = input.closest(".image-upload-container").parentElement.querySelector(".image-preview");
+    if (!preview) return;
+
+    preview.innerHTML = "";
+    [...input.files].forEach((file, index) => {
+        if (!file.type.startsWith("image/")) return;
+
+        const img = document.createElement("img");
+        img.src = URL.createObjectURL(file);
+        img.alt = file.name;
+        img.className = "preview-img";
+        
+        const imgItem = document.createElement("div");
+        imgItem.className = "image-item";
+        imgItem.dataset.index = index;
+        
+        const deleteBtn = document.createElement("button");
+        deleteBtn.type = "button";
+        deleteBtn.className = "img-delete-btn";
+        deleteBtn.title = "حذف الصورة";
+        deleteBtn.innerHTML = '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg>';
+        deleteBtn.addEventListener("click", function(e) {
+            e.preventDefault();
+            removeImageFile(input, index);
+        });
+        
+        img.onload = () => URL.revokeObjectURL(img.src);
+        
+        imgItem.appendChild(img);
+        imgItem.appendChild(deleteBtn);
+        preview.appendChild(imgItem);
+    });
+}
+
+function removeImageFile(input, index) {
+    const dataTransfer = new DataTransfer();
+    const files = input.files;
+    
+    for (let i = 0; i < files.length; i++) {
+        if (i !== index) {
+            dataTransfer.items.add(files[i]);
+        }
+    }
+    
+    input.files = dataTransfer.files;
+    handleImageUpload(input);
+}
 
 updateLiveScore();
 
