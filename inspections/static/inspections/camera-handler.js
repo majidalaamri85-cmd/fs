@@ -7,205 +7,36 @@
  */
 
 (function() {
+    'use strict';
+    
     // تحديد نوع الجهاز والمتصفح
     const userAgent = navigator.userAgent.toLowerCase();
     const isHuawei = /huawei|honor/.test(userAgent);
     const isAndroid = /android/.test(userAgent);
     const isIOS = /iphone|ipad|ipod/.test(userAgent);
     const isSamsung = /samsung/.test(userAgent);
+    const isChrome = /chrome|chromium/.test(userAgent);
+    const isFirefox = /firefox/.test(userAgent);
+    const isSafari = /safari/.test(userAgent) && !isChrome;
     
-    console.log('🔍 Device Detection:', { isHuawei, isAndroid, isIOS, isSamsung });
+    console.log('🔍 Device Detection:', { isHuawei, isAndroid, isIOS, isSamsung, isChrome, isFirefox, isSafari });
     
-    // معالجة الأزرار
+    // معالجة الأزرار - simplified approach
     function setupCameraHandlers() {
-        // أزرار التقاط الصور من الكاميرا
-        document.querySelectorAll(".image-camera-btn").forEach(btn => {
-            btn.addEventListener("click", function(e) {
-                e.preventDefault();
-                handleCameraClick(this);
+        console.log('🎯 Setting up camera handlers...');
+        
+        // Configure file input accept attributes based on device
+        if (isHuawei || isAndroid) {
+            console.log('⚙️ Configuring for Android/Huawei device');
+            document.querySelectorAll("input[type='file'][accept*='image']").forEach(input => {
+                input.setAttribute('accept', 'image/*');
             });
-        });
-        
-        // أزرار اختيار من المعرض
-        document.querySelectorAll(".image-gallery-btn").forEach(btn => {
-            btn.addEventListener("click", function(e) {
-                e.preventDefault();
-                handleGalleryClick(this);
-            });
-        });
-    }
-    
-    /**
-     * التعامل مع زر التقاط الصور من الكاميرا
-     */
-    function handleCameraClick(button) {
-        const container = button.closest(".image-upload-container");
-        if (!container) return;
-        
-        // محاولة أولاً مع environment (الكاميرا الخلفية)
-        let cameraInput = container.querySelector(".image-camera-input[capture='environment']");
-        const fallbackInput = container.querySelector(".image-camera-input-fallback");
-        
-        if (!cameraInput) {
-            cameraInput = container.querySelector(".image-camera-input");
         }
         
-        if (cameraInput) {
-            // إضافة معالج لمحاولة fallback عند الفشل
-            const handleCancel = function() {
-                console.log('📸 Primary camera cancelled, trying fallback (user camera)');
-                if (fallbackInput) {
-                    setTimeout(() => {
-                        try {
-                            fallbackInput.click();
-                        } catch (e) {
-                            console.error('❌ Fallback click failed:', e);
-                        }
-                    }, 100);
-                }
-                cameraInput.removeEventListener('cancel', handleCancel);
-                cameraInput.removeEventListener('error', handleError);
-            };
-            
-            const handleError = function(error) {
-                console.error('❌ Error with primary camera:', error);
-                handleCancel();
-            };
-            
-            cameraInput.addEventListener('cancel', handleCancel, { once: true });
-            cameraInput.addEventListener('error', handleError, { once: true });
-            
-            // محاولة النقر على الإدخال
-            try {
-                cameraInput.click();
-                console.log('✅ Camera input clicked successfully');
-            } catch (error) {
-                console.error('❌ Error clicking camera input:', error);
-                handleCancel();
-                showCameraError('فشل فتح الكاميرا. يرجى التحقق من الأذونات.');
-            }
-        } else {
-            console.error('❌ Camera input not found');
-            showCameraError('عنصر الكاميرا غير متاح.');
-        }
-    }
-    
-    /**
-     * التعامل مع زر المعرض
-     */
-    function handleGalleryClick(button) {
-        const container = button.closest(".image-upload-container");
-        if (!container) return;
-        
-        const galleryInput = container.querySelector(".image-input");
-        if (galleryInput) {
-            try {
-                galleryInput.click();
-                console.log('✅ Gallery input clicked successfully');
-            } catch (error) {
-                console.error('❌ Error clicking gallery input:', error);
-                showCameraError('فشل فتح المعرض.');
-            }
-        }
-    }
-    
-    /**
-     * معالج إلغاء الكاميرا
-     */
-    function handleCameraCancel() {
-        console.log('ℹ️ Camera capture cancelled by user');
-    }
-    
-    /**
-     * معالج خطأ الكاميرا
-     */
-    function handleCameraError(e) {
-        console.error('❌ Camera error:', e);
-        const error = e.target.error?.name || 'unknown';
-        
-        let message = 'حدث خطأ في الكاميرا.';
-        
-        switch (error) {
-            case 'NotAllowedError':
-                message = 'لم يتم السماح بالوصول إلى الكاميرا. يرجى التحقق من الأذونات في إعدادات الجهاز.';
-                break;
-            case 'NotFoundError':
-                message = 'لا توجد كاميرا على هذا الجهاز.';
-                break;
-            case 'NotReadableError':
-                message = 'الكاميرا قيد الاستخدام من قبل تطبيق آخر.';
-                break;
-            case 'SecurityError':
-                message = 'يجب استخدام HTTPS لالتقاط الصور من الكاميرا.';
-                break;
-        }
-        
-        showCameraError(message);
-    }
-    
-    /**
-     * عرض رسالة خطأ
-     */
-    function showCameraError(message) {
-        const alertDiv = document.createElement('div');
-        alertDiv.className = 'camera-error-alert';
-        alertDiv.setAttribute('role', 'alert');
-        alertDiv.setAttribute('aria-live', 'polite');
-        alertDiv.innerHTML = `
-            <div class="error-content">
-                <strong>⚠️ خطأ الكاميرا</strong>
-                <p>${message}</p>
-                <button type="button" class="btn btn-sm" onclick="this.parentElement.parentElement.remove()">إغلاق</button>
-            </div>
-        `;
-        
-        // إدراج التنبيه في بداية الصفحة
-        const container = document.querySelector('.container') || document.body;
-        container.insertBefore(alertDiv, container.firstChild);
-        
-        // إزالة تلقائية بعد 5 ثوان
-        setTimeout(() => {
-            if (alertDiv.parentElement) {
-                alertDiv.remove();
-            }
-        }, 5000);
-    }
-    
-    /**
-     * إعادة محاولة مع capture fallback
-     * استخدام user بدلاً من environment إذا فشلت
-     */
-    function tryFallbackCapture() {
-        console.log('🔄 Trying fallback capture mode (user instead of environment)');
-        
-        document.querySelectorAll(".image-camera-input").forEach(input => {
-            // إذا كان capture="environment"، جرب إضافة نسخة بـ user
-            if (input.getAttribute('capture') === 'environment') {
-                const userCameraInput = input.cloneNode(true);
-                userCameraInput.setAttribute('capture', 'user');
-                input.parentElement.insertBefore(userCameraInput, input.nextSibling);
-                
-                userCameraInput.addEventListener('change', function() {
-                    if (this.files.length > 0) {
-                        handleImageUpload(this);
-                    }
-                });
-            }
-        });
-    }
-    
-    /**
-     * التحقق من دعم الكاميرا
-     */
-    function checkCameraSupport() {
-        const hasCamera = navigator.mediaDevices && navigator.mediaDevices.getUserMedia;
-        console.log('📹 Camera support:', hasCamera ? '✅ Yes' : '❌ No');
-        
-        if (!hasCamera) {
-            console.warn('⚠️ Camera not supported on this device/browser');
-            // يمكن إخفاء زر الكاميرا أو تعطيله
-            document.querySelectorAll(".image-camera-btn").forEach(btn => {
-                btn.disabled = false; // نبقيه مفعّل لأن input capture قد يعمل حتى بدون MediaDevices API
+        if (isIOS) {
+            console.log('⚙️ Configuring for iOS device');
+            document.querySelectorAll("input[type='file'][capture]").forEach(input => {
+                input.setAttribute('accept', 'image/*');
             });
         }
     }
@@ -216,172 +47,86 @@
     function applyHuaweiOptimizations() {
         if (!isHuawei) return;
         
-        console.log('🔧 Applying Huawei device optimizations...');
+        console.log('🔧 Applying Huawei optimizations...');
         
-        // على Huawei، قد نحتاج إلى نسخ محسّنة
-        document.querySelectorAll(".image-camera-input").forEach(input => {
-            // إضافة خصائص محسّنة
-            input.setAttribute('accept', 'image/*,image/jpeg,image/png,image/gif');
-            input.setAttribute('autocapture', 'true');
-            
-            // إضافة معالج fallback تلقائي
-            input.addEventListener('cancel', function() {
-                console.log('📸 Environment camera cancelled, trying fallback...');
-                const fallbackInput = input.closest(".image-upload-container").querySelector(".image-camera-input-fallback");
-                if (fallbackInput) {
-                    setTimeout(() => fallbackInput.click(), 100);
-                }
-            }, { once: false });
-        });
-        
-        // معالجة خاصة للـ fallback input على Huawei
-        document.querySelectorAll(".image-camera-input-fallback").forEach(fallbackInput => {
-            fallbackInput.setAttribute('accept', 'image/*,image/jpeg,image/png,image/gif');
-            fallbackInput.addEventListener('change', function(e) {
-                if (this.files.length > 0) {
-                    console.log('✅ Fallback camera captured image successfully');
-                    const imageInput = this.closest(".image-upload-container").querySelector(".image-input");
-                    if (imageInput && window.handleImageUpload) {
-                        const dataTransfer = new DataTransfer();
-                        for (let file of imageInput.files) {
-                            dataTransfer.items.add(file);
-                        }
-                        for (let file of this.files) {
-                            dataTransfer.items.add(file);
-                        }
-                        imageInput.files = dataTransfer.files;
-                        window.handleImageUpload(imageInput);
-                    }
-                }
-            });
-        });
-    }
-    
-    /**
-     * تحسينات خاصة لأجهزة Android
-     */
-    function applyAndroidOptimizations() {
-        if (!isAndroid) return;
-        
-        console.log('🔧 Applying Android device optimizations...');
-        
-        // على Android، تأكد من قبول جميع صيغ الصور
-        document.querySelectorAll("input[type='file'][accept*='image']").forEach(input => {
+        document.querySelectorAll(".image-camera-input, .image-camera-input-fallback").forEach(input => {
             input.setAttribute('accept', 'image/*');
         });
     }
     
     /**
-     * إنشاء أزرار بديلة للتقاط الصور
+     * معالج خطأ الكاميرا
      */
-    function createFallbackButtons() {
-        // يمكن إضافة أزرار بديلة هنا إذا لزم الأمر
-        console.log('✅ Fallback buttons ready if needed');
+    function handleCameraError(message) {
+        console.error('❌ Camera error:', message);
+        showCameraError(message);
+    }
+    /**
+     * عرض رسالة خطأ
+     */
+    function showCameraError(message) {
+        console.error('⚠️ Camera Error:', message);
+        
+        const alertDiv = document.createElement('div');
+        alertDiv.className = 'camera-error-alert';
+        alertDiv.setAttribute('role', 'alert');
+        alertDiv.setAttribute('aria-live', 'polite');
+        alertDiv.innerHTML = `
+            <div class="error-content">
+                <strong>⚠️ خطأ الكاميرا/المعرج</strong>
+                <p>${message}</p>
+                <button type="button" class="btn btn-sm" onclick="this.parentElement.parentElement.remove()">إغلاق</button>
+            </div>
+        `;
+        
+        const container = document.querySelector('.container') || document.body;
+        container.insertBefore(alertDiv, container.firstChild);
+        
+        setTimeout(() => {
+            if (alertDiv.parentElement) {
+                alertDiv.remove();
+            }
+        }, 5000);
     }
     
     /**
-     * معالج تحميل الصور المحسّنة
+     * التحقق من دعم الكاميرا
      */
-    window.handleImageUploadImproved = function(input) {
-        try {
-            const preview = input.closest(".image-upload-container")?.parentElement?.querySelector(".image-preview");
-            if (!preview) return;
-            
-            preview.innerHTML = "";
-            [...input.files].forEach((file, index) => {
-                if (!file.type.startsWith("image/")) {
-                    console.warn(`⚠️ Skipping non-image file: ${file.name}`);
-                    return;
-                }
-                
-                const img = document.createElement("img");
-                img.src = URL.createObjectURL(file);
-                img.alt = file.name;
-                img.className = "preview-img";
-                
-                const imgItem = document.createElement("div");
-                imgItem.className = "image-item";
-                imgItem.dataset.index = index;
-                
-                const deleteBtn = document.createElement("button");
-                deleteBtn.type = "button";
-                deleteBtn.className = "img-delete-btn";
-                deleteBtn.title = "حذف الصورة";
-                deleteBtn.innerHTML = '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg>';
-                deleteBtn.addEventListener("click", function(e) {
-                    e.preventDefault();
-                    removeImageFile(input, index);
-                });
-                
-                img.onload = () => {
-                    console.log(`✅ Image loaded: ${file.name}`);
-                    URL.revokeObjectURL(img.src);
-                };
-                
-                img.onerror = () => {
-                    console.error(`❌ Image failed to load: ${file.name}`);
-                };
-                
-                imgItem.appendChild(img);
-                imgItem.appendChild(deleteBtn);
-                preview.appendChild(imgItem);
-            });
-            
-            console.log(`✅ Loaded ${[...input.files].filter(f => f.type.startsWith("image/")).length} images`);
-        } catch (error) {
-            console.error('❌ Error in handleImageUploadImproved:', error);
-            showCameraError('حدث خطأ في معالجة الصور.');
-        }
-    };
+    function checkCameraSupport() {
+        const hasCamera = navigator.mediaDevices && navigator.mediaDevices.getUserMedia;
+        console.log('📹 Camera API support:', hasCamera ? '✅ Yes' : '❌ No');
+        
+        const input = document.createElement('input');
+        input.setAttribute('type', 'file');
+        const hasInputCapture = 'capture' in input;
+        console.log('📹 Input capture support:', hasInputCapture ? '✅ Yes' : '❌ No');
+    }
     
     /**
-     * حذف صورة محسّن
-     */
-    window.removeImageFileImproved = function(input, index) {
-        try {
-            const dataTransfer = new DataTransfer();
-            const files = input.files;
-            
-            for (let i = 0; i < files.length; i++) {
-                if (i !== index) {
-                    dataTransfer.items.add(files[i]);
-                }
-            }
-            
-            input.files = dataTransfer.files;
-            handleImageUploadImproved(input);
-            console.log(`✅ Image removed, ${input.files.length} remaining`);
-        } catch (error) {
-            console.error('❌ Error removing image:', error);
-        }
-    };
-    
-    /**
-     * تهيئة جميع المعالجات
+     * تهيئة التطبيق
      */
     function initialize() {
         console.log('🚀 Initializing Camera Handler...');
         
-        // انتظر قليلاً للتأكد من تحميل DOM بالكامل
         if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', () => {
-                setupAll();
-            });
+            document.addEventListener('DOMContentLoaded', setupAll);
         } else {
             setupAll();
         }
     }
     
     function setupAll() {
-        checkCameraSupport();
-        setupCameraHandlers();
-        applyHuaweiOptimizations();
-        applyAndroidOptimizations();
-        createFallbackButtons();
-        console.log('✅ Camera Handler initialized successfully');
+        try {
+            checkCameraSupport();
+            setupCameraHandlers();
+            applyHuaweiOptimizations();
+            console.log('✅ Camera Handler initialized successfully');
+        } catch (error) {
+            console.error('❌ Error initializing camera handler:', error);
+        }
     }
     
-    // ابدأ التهيئة
+    // Start initialization
     initialize();
     
     // إضافة أسلوب للتنبيهات

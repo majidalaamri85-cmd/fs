@@ -304,6 +304,7 @@ document.querySelectorAll("input, select, textarea").forEach(field => {
     });
 });
 
+// Image upload handling
 document.querySelectorAll(".image-input").forEach(input => {
     input.addEventListener("change", function() {
         handleImageUpload(this);
@@ -316,29 +317,9 @@ document.querySelectorAll(".image-camera-btn").forEach(btn => {
         e.preventDefault();
         const container = this.closest(".image-upload-container");
         const cameraInput = container.querySelector(".image-camera-input");
-        const fallbackInput = container.querySelector(".image-camera-input-fallback");
         
         if (cameraInput) {
-            // Try primary camera input
-            cameraInput.addEventListener('change', handleCameraInputChange, { once: true });
-            cameraInput.addEventListener('cancel', function() {
-                // If user cancelled, try fallback
-                if (fallbackInput) {
-                    console.log('📸 Primary camera cancelled, trying fallback (user camera)');
-                    fallbackInput.click();
-                }
-            }, { once: true });
-            
-            try {
-                cameraInput.click();
-            } catch (error) {
-                console.error('❌ Error with primary camera:', error);
-                // Try fallback immediately on error
-                if (fallbackInput) {
-                    console.log('📸 Primary camera error, trying fallback (user camera)');
-                    fallbackInput.click();
-                }
-            }
+            cameraInput.click();
         }
     });
 });
@@ -352,54 +333,92 @@ document.querySelectorAll(".image-gallery-btn").forEach(btn => {
     });
 });
 
-// Handler function for camera input change
-function handleCameraInputChange() {
-    if (this.files.length > 0) {
-        const imageInput = this.closest(".image-upload-container").querySelector(".image-input");
-        // Create a new DataTransfer to add files
-        const dataTransfer = new DataTransfer();
+// Camera input change handler
+function handleCameraInputChange(e) {
+    const cameraInput = e.target;
+    if (cameraInput.files.length > 0) {
+        const container = cameraInput.closest(".image-upload-container");
+        const imageInput = container.querySelector(".image-input");
         
-        // Add existing files
-        for (let file of imageInput.files) {
-            dataTransfer.items.add(file);
+        if (imageInput) {
+            try {
+                // Use DataTransfer to combine files
+                const dataTransfer = new DataTransfer();
+                
+                // Add existing files
+                for (let file of imageInput.files || []) {
+                    dataTransfer.items.add(file);
+                }
+                
+                // Add camera captured file
+                for (let file of cameraInput.files || []) {
+                    dataTransfer.items.add(file);
+                }
+                
+                imageInput.files = dataTransfer.files;
+                handleImageUpload(imageInput);
+                console.log('✅ Camera image added successfully');
+            } catch (error) {
+                console.error('❌ Error combining files:', error);
+                // Fallback: just add the camera file directly
+                imageInput.files = cameraInput.files;
+                handleImageUpload(imageInput);
+            }
         }
-        
-        // Add camera captured file
-        for (let file of this.files) {
-            dataTransfer.items.add(file);
-        }
-        
-        imageInput.files = dataTransfer.files;
-        handleImageUpload(imageInput);
     }
+    // Reset camera input for reuse
+    cameraInput.value = '';
 }
 
-// Attach handler to primary camera input
-document.querySelectorAll(".image-camera-input").forEach(input => {
+// Attach handlers to camera inputs
+document.querySelectorAll(".image-camera-input, .image-camera-input-fallback").forEach(input => {
     input.addEventListener("change", handleCameraInputChange);
 });
 
-// Attach handler to fallback camera input
-document.querySelectorAll(".image-camera-input-fallback").forEach(input => {
-    input.addEventListener("change", handleCameraInputChange);
-});
-
+// Main image upload handler
 function handleImageUpload(input) {
-    const preview = input.closest(".image-upload-container").parentElement.querySelector(".image-preview");
-    if (!preview) return;
+    const container = input.closest(".image-upload-container");
+    if (!container) return;
+    
+    // Find the preview container
+    const previewContainer = container.parentElement;
+    const thumbsContainer = previewContainer.querySelector(".image-preview");
+    
+    if (!thumbsContainer) {
+        console.error('❌ Preview container not found');
+        return;
+    }
 
-    preview.innerHTML = "";
+    // Clear existing previews (but not existing images)
+    thumbsContainer.innerHTML = "";
+    
+    if (!input.files || input.files.length === 0) {
+        console.log('ℹ️ No files selected');
+        return;
+    }
+    
     [...input.files].forEach((file, index) => {
-        if (!file.type.startsWith("image/")) return;
+        if (!file.type.startsWith("image/")) {
+            console.warn('⚠️ Skipping non-image file:', file.name);
+            return;
+        }
 
         const img = document.createElement("img");
-        img.src = URL.createObjectURL(file);
-        img.alt = file.name;
         img.className = "preview-img";
+        img.alt = file.name;
+        img.title = file.name;
+        
+        // Create ObjectURL for preview
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
         
         const imgItem = document.createElement("div");
         imgItem.className = "image-item";
         imgItem.dataset.index = index;
+        imgItem.dataset.fileName = file.name;
         
         const deleteBtn = document.createElement("button");
         deleteBtn.type = "button";
@@ -411,26 +430,38 @@ function handleImageUpload(input) {
             removeImageFile(input, index);
         });
         
-        img.onload = () => URL.revokeObjectURL(img.src);
-        
         imgItem.appendChild(img);
         imgItem.appendChild(deleteBtn);
-        preview.appendChild(imgItem);
+        thumbsContainer.appendChild(imgItem);
     });
+    
+    console.log(`✅ Loaded ${[...input.files].filter(f => f.type.startsWith("image/")).length} images`);
 }
 
-function removeImageFile(input, index) {
-    const dataTransfer = new DataTransfer();
-    const files = input.files;
+function removeImageFile(input, indexToRemove) {
+    if (!input || !input.files) return;
     
-    for (let i = 0; i < files.length; i++) {
-        if (i !== index) {
-            dataTransfer.items.add(files[i]);
+    try {
+        const dataTransfer = new DataTransfer();
+        const files = [...input.files];
+        
+        for (let i = 0; i < files.length; i++) {
+            if (i !== indexToRemove) {
+                dataTransfer.items.add(files[i]);
+            }
         }
+        
+        input.files = dataTransfer.files;
+        handleImageUpload(input);
+        console.log(`✅ Image removed, ${input.files.length} remaining`);
+    } catch (error) {
+        console.error('❌ Error removing image:', error);
+        // Fallback for browsers that don't support DataTransfer
+        const files = Array.from(input.files);
+        files.splice(indexToRemove, 1);
+        // Note: This won't update input.files, but the visual preview will be updated
+        handleImageUpload(input);
     }
-    
-    input.files = dataTransfer.files;
-    handleImageUpload(input);
 }
 
 updateLiveScore();
