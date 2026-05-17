@@ -80,24 +80,6 @@
             <textarea name="product_types" class="wide-field" placeholder="أنواع المنتجات">{{ evaluation.product_types|default:'' }}</textarea>
         </div>
 
-        <div class="team-picker">
-            <label for="team-member-input">فريق التقييم</label>
-            <div class="team-picker-row">
-                <input type="text" id="team-member-input" list="evaluation-team-options" placeholder="اختر من القائمة أو اكتب اسم عضو جديد">
-                <button type="button" class="btn" id="add-team-member">
-                    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-                    إضافة
-                </button>
-            </div>
-            <datalist id="evaluation-team-options">
-                {% for member in evaluation_team_options %}
-                    <option value="{{ member }}"></option>
-                {% endfor %}
-            </datalist>
-            <div class="team-members" id="team-members"></div>
-            <textarea name="evaluation_team" id="evaluation-team-value" class="hidden-field">{{ evaluation.evaluation_team|default:'' }}</textarea>
-        </div>
-
     </div>
 </div>
 
@@ -208,6 +190,29 @@
             </table>
         </div>
     </div>
+</div>
+
+<div class="team-picker team-picker-final">
+    <div class="team-picker-heading">
+        <span class="team-picker-icon" aria-hidden="true">
+            <svg class="icon" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </span>
+        <label for="team-member-input">فريق التقييم</label>
+    </div>
+    <div class="team-picker-row">
+        <input type="text" id="team-member-input" list="evaluation-team-options" placeholder="اختر من القائمة أو اكتب اسم عضو جديد">
+        <button type="button" class="btn" id="add-team-member">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+            إضافة
+        </button>
+    </div>
+    <datalist id="evaluation-team-options">
+        {% for member in evaluation_team_options %}
+            <option value="{{ member }}"></option>
+        {% endfor %}
+    </datalist>
+    <div class="team-members" id="team-members"></div>
+    <textarea name="evaluation_team" id="evaluation-team-value" class="hidden-field">{{ evaluation.evaluation_team|default:'' }}</textarea>
 </div>
 
 <button type="submit" class="btn primary full">

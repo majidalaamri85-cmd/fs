@@ -489,6 +489,35 @@ def add_section_heading(doc, title, fill='0F6B4B'):
     doc.add_paragraph()
 
 
+def add_evaluation_team_block(doc, evaluation_team):
+    doc.add_paragraph()
+    table = doc.add_table(rows=2, cols=1)
+    table.alignment = WD_TABLE_ALIGNMENT.CENTER
+    table.style = 'Table Grid'
+    set_table_rtl(table)
+
+    header_cell = table.rows[0].cells[0]
+    shade_cell(header_cell, '155E75')
+    set_cell_text(header_cell, 'فريق التقييم', bold=True, color='FFFFFF')
+
+    body_cell = table.rows[1].cells[0]
+    shade_cell(body_cell, 'EEF7FA')
+    body_cell.text = ''
+    team_members = [member.strip() for member in str(evaluation_team or '').splitlines() if member.strip()]
+    if not team_members:
+        team_members = ['']
+
+    for index, member in enumerate(team_members):
+        paragraph = body_cell.paragraphs[0] if index == 0 else body_cell.add_paragraph()
+        paragraph.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+        paragraph.paragraph_format.space_after = Pt(4)
+        run = paragraph.add_run(member)
+        run.bold = True
+        run.font.color.rgb = RGBColor.from_string('155E75')
+
+    doc.add_paragraph()
+
+
 def get_report_header_path():
     base_dir = Path(settings.BASE_DIR)
     candidates = [
@@ -585,7 +614,6 @@ def export_word(request, pk):
         ('المحافظة', evaluation.governorate.name if evaluation.governorate else ''),
         ('الولاية', evaluation.wilayat.name if evaluation.wilayat else ''),
         ('تاريخ الزيارة', str(evaluation.visit_date)),
-        ('فريق التقييم', evaluation.evaluation_team),
         ('عدد الورديات', evaluation.shift_count),
         ('عدد العاملين في الوردية', evaluation.workers_per_shift),
         ('مجموع عدد العاملين المصنع', evaluation.total_factory_workers),
@@ -682,6 +710,7 @@ def export_word(request, pk):
         set_cell_text(row[2], 'نعم' if haccp_row['exists'] == 'yes' else '')
         set_cell_text(row[3], haccp_row['requirement'])
 
+    add_evaluation_team_block(doc, evaluation.evaluation_team)
     add_report_signature(doc)
 
     buffer = BytesIO()
