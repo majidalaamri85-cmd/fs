@@ -83,6 +83,8 @@
             <div class="thumbs">
             {% for img in r.images.all %}
                 <img src="{{ img.image.url }}">
+            {% empty %}
+                <span>لا توجد صور مرفقة</span>
             {% endfor %}
             </div>
         </td>

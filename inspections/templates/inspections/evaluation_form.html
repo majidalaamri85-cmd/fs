@@ -147,20 +147,12 @@
                 <!-- Image Upload with improved mobile support -->
                 <div class="image-upload-container">
                     <div class="image-upload-buttons">
-                        <button type="button" class="btn image-camera-btn" title="التقط صورة مباشرة">
-                            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-                            التقط صورة
-                        </button>
-                        <button type="button" class="btn image-gallery-btn" title="اختر من المعرض">
+                        <button type="button" class="btn image-attach-btn" title="إرفاق صور">
                             <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 19V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2z"/><rect x="3" y="3" width="18" height="18"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
-                            من المعرض
+                            إرفاق صور
                         </button>
                     </div>
                     <input type="file" name="images_{{ item.id }}" multiple accept="image/*" class="image-input" style="display:none">
-                    <!-- Primary: Back camera (environment) -->
-                    <input type="file" class="image-camera-input" accept="image/*" capture="environment" style="display:none">
-                    <!-- Fallback: Front camera for devices that don't support environment (like some Huawei phones) -->
-                    <input type="file" class="image-camera-input-fallback" accept="image/*" capture="user" style="display:none">
                 </div>
                 
                 <!-- Image Preview with delete functionality -->
@@ -307,24 +299,15 @@ document.querySelectorAll("input, select, textarea").forEach(field => {
 // Image upload handling
 document.querySelectorAll(".image-input").forEach(input => {
     input.addEventListener("change", function() {
+        mergeSelectedImages(this);
         handleImageUpload(this);
+        // Allow selecting the same file again in the next picker open.
+        this.value = "";
     });
 });
 
-// Handle camera and gallery buttons
-document.querySelectorAll(".image-camera-btn").forEach(btn => {
-    btn.addEventListener("click", function(e) {
-        e.preventDefault();
-        const container = this.closest(".image-upload-container");
-        const cameraInput = container.querySelector(".image-camera-input");
-        
-        if (cameraInput) {
-            cameraInput.click();
-        }
-    });
-});
-
-document.querySelectorAll(".image-gallery-btn").forEach(btn => {
+// Single attach button (camera/gallery chooser depends on device)
+document.querySelectorAll(".image-attach-btn").forEach(btn => {
     btn.addEventListener("click", function(e) {
         e.preventDefault();
         const container = this.closest(".image-upload-container");
@@ -333,47 +316,41 @@ document.querySelectorAll(".image-gallery-btn").forEach(btn => {
     });
 });
 
-// Camera input change handler
-function handleCameraInputChange(e) {
-    const cameraInput = e.target;
-    if (cameraInput.files.length > 0) {
-        const container = cameraInput.closest(".image-upload-container");
-        const imageInput = container.querySelector(".image-input");
-        
-        if (imageInput) {
-            try {
-                // Use DataTransfer to combine files
-                const dataTransfer = new DataTransfer();
-                
-                // Add existing files
-                for (let file of imageInput.files || []) {
-                    dataTransfer.items.add(file);
-                }
-                
-                // Add camera captured file
-                for (let file of cameraInput.files || []) {
-                    dataTransfer.items.add(file);
-                }
-                
-                imageInput.files = dataTransfer.files;
-                handleImageUpload(imageInput);
-                console.log('✅ Camera image added successfully');
-            } catch (error) {
-                console.error('❌ Error combining files:', error);
-                // Fallback: just add the camera file directly
-                imageInput.files = cameraInput.files;
-                handleImageUpload(imageInput);
-            }
+function mergeSelectedImages(input) {
+    if (!input || !input.files) return;
+
+    const previousFiles = input._selectedFiles || [];
+    const incomingFiles = Array.from(input.files);
+
+    const mergedFiles = [...previousFiles];
+    incomingFiles.forEach(file => {
+        const exists = mergedFiles.some(existing => (
+            existing.name === file.name
+            && existing.size === file.size
+            && existing.lastModified === file.lastModified
+        ));
+        if (!exists) {
+            mergedFiles.push(file);
         }
+    });
+
+    try {
+        const dataTransfer = new DataTransfer();
+        mergedFiles.forEach(file => dataTransfer.items.add(file));
+        input.files = dataTransfer.files;
+        input._selectedFiles = Array.from(dataTransfer.files);
+    } catch (error) {
+        console.error('❌ Error merging selected images:', error);
     }
-    // Reset camera input for reuse
-    cameraInput.value = '';
 }
 
-// Attach handlers to camera inputs
-document.querySelectorAll(".image-camera-input, .image-camera-input-fallback").forEach(input => {
-    input.addEventListener("change", handleCameraInputChange);
-});
+function getSelectedFiles(input) {
+    if (!input) return [];
+    if (Array.isArray(input._selectedFiles)) {
+        return input._selectedFiles;
+    }
+    return Array.from(input.files || []);
+}
 
 // Main image upload handler
 function handleImageUpload(input) {
@@ -392,12 +369,14 @@ function handleImageUpload(input) {
     // Clear existing previews (but not existing images)
     thumbsContainer.innerHTML = "";
     
-    if (!input.files || input.files.length === 0) {
+    const selectedFiles = getSelectedFiles(input);
+
+    if (selectedFiles.length === 0) {
         console.log('ℹ️ No files selected');
         return;
     }
     
-    [...input.files].forEach((file, index) => {
+    selectedFiles.forEach((file, index) => {
         if (!file.type.startsWith("image/")) {
             console.warn('⚠️ Skipping non-image file:', file.name);
             return;
@@ -435,15 +414,15 @@ function handleImageUpload(input) {
         thumbsContainer.appendChild(imgItem);
     });
     
-    console.log(`✅ Loaded ${[...input.files].filter(f => f.type.startsWith("image/")).length} images`);
+    console.log(`✅ Loaded ${selectedFiles.filter(f => f.type.startsWith("image/")).length} images`);
 }
 
 function removeImageFile(input, indexToRemove) {
-    if (!input || !input.files) return;
+    if (!input) return;
     
     try {
         const dataTransfer = new DataTransfer();
-        const files = [...input.files];
+        const files = getSelectedFiles(input);
         
         for (let i = 0; i < files.length; i++) {
             if (i !== indexToRemove) {
@@ -452,16 +431,35 @@ function removeImageFile(input, indexToRemove) {
         }
         
         input.files = dataTransfer.files;
+        input._selectedFiles = Array.from(dataTransfer.files);
         handleImageUpload(input);
-        console.log(`✅ Image removed, ${input.files.length} remaining`);
+        console.log(`✅ Image removed, ${input._selectedFiles.length} remaining`);
     } catch (error) {
         console.error('❌ Error removing image:', error);
-        // Fallback for browsers that don't support DataTransfer
-        const files = Array.from(input.files);
+        // Fallback: keep the in-memory list updated then refresh preview.
+        const files = getSelectedFiles(input);
         files.splice(indexToRemove, 1);
-        // Note: This won't update input.files, but the visual preview will be updated
+        input._selectedFiles = files;
         handleImageUpload(input);
     }
+}
+
+const evaluationForm = document.querySelector("form.form-card");
+if (evaluationForm) {
+    evaluationForm.addEventListener("submit", function() {
+        document.querySelectorAll(".image-input").forEach(input => {
+            const files = getSelectedFiles(input);
+            if (!files.length) return;
+
+            try {
+                const dataTransfer = new DataTransfer();
+                files.forEach(file => dataTransfer.items.add(file));
+                input.files = dataTransfer.files;
+            } catch (error) {
+                console.error('❌ Error preparing files for submit:', error);
+            }
+        });
+    });
 }
 
 updateLiveScore();
