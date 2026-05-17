@@ -614,6 +614,56 @@ def export_word(request, pk):
         set_cell_text(row[0], value)
         set_cell_text(row[1], label, bold=True)
 
+    add_section_heading(doc, 'البنود غير المستوفية والإجراءات التصحيحية', fill='B42318')
+
+    if not non_compliant_responses:
+        ok = doc.add_paragraph('لا توجد بنود غير مستوفية.')
+        ok.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+    else:
+        current_section = None
+        for r in non_compliant_responses:
+            if current_section != r.item.section_id:
+                current_section = r.item.section_id
+            add_section_heading(doc, f'\u200e{r.item.section.order}. {r.item.section.title}', fill='155E75')
+
+            item_table = doc.add_table(rows=1, cols=6)
+            item_table.alignment = WD_TABLE_ALIGNMENT.CENTER
+            item_table.style = 'Table Grid'
+            set_table_rtl(item_table)
+            hdr = item_table.rows[0].cells
+            headers = ['البند', 'الأولوية', 'الملاحظات', 'الإجراء التصحيحي', 'مدة التصحيح', 'الصور']
+            for cell, header in zip(hdr, headers):
+                set_cell_text(cell, header, bold=True)
+            style_table_header(item_table.rows[0], fill='0F6B4B')
+
+            row = item_table.add_row().cells
+            set_cell_text(row[0], f'\u200e{r.item.number} - {r.item.text}')
+            set_cell_text(row[1], r.item.priority)
+            set_cell_text(row[2], r.notes)
+            set_cell_text(row[3], r.corrective_action)
+            set_cell_text(row[4], r.correction_duration)
+
+            image_paragraph = row[5].paragraphs[0]
+            image_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            images_added = 0
+            for image in r.images.all():
+                try:
+                    import urllib.request, io
+                    img_url = image.image.url
+                    if img_url.startswith('http'):
+                        with urllib.request.urlopen(img_url) as resp:
+                            img_data = io.BytesIO(resp.read())
+                        image_paragraph.add_run().add_picture(img_data, width=Inches(1.1))
+                    else:
+                        image_paragraph.add_run().add_picture(image.image.path, width=Inches(1.1))
+                    images_added += 1
+                except Exception:
+                    continue
+            if not images_added:
+                set_cell_text(row[5], 'لا توجد صور')
+
+            doc.add_paragraph()
+
     add_section_heading(doc, 'مستندات الهاسب وشهادات أنظمة الجودة')
     table3 = doc.add_table(rows=1, cols=4)
     table3.alignment = WD_TABLE_ALIGNMENT.CENTER
