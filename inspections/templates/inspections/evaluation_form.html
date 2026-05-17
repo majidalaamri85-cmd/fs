@@ -118,8 +118,8 @@
             </div>
 
             <select name="status_{{ item.id }}" class="status-select">
-                <option value="" {% if not response %}selected{% endif %}>اختر الحالة</option>
-                <option value="compliant" {% if response.status == 'compliant' %}selected{% endif %}>مستوفي</option>
+                <option value="" {% if response and not response.status %}selected{% endif %}>اختر الحالة</option>
+                <option value="compliant" {% if not response or response.status == 'compliant' %}selected{% endif %}>مستوفي</option>
                 <option value="non_compliant" {% if response.status == 'non_compliant' %}selected{% endif %}>غير مستوفي</option>
                 <option value="na" {% if response.status == 'na' %}selected{% endif %}>لا ينطبق</option>
             </select>
