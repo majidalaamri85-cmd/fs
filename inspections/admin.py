@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Governorate, Wilayat, Section, Item, Evaluation, Response, ResponseImage
+from .models import Governorate, Wilayat, Section, Item, Evaluation, Response, ResponseImage, StatisticalRecord
 
 @admin.register(Governorate)
 class GovernorateAdmin(admin.ModelAdmin):
@@ -47,3 +47,11 @@ class ResponseAdmin(admin.ModelAdmin):
     list_display = ('evaluation', 'item', 'status')
     list_filter = ('status',)
     inlines = [ResponseImageInline]
+
+
+@admin.register(StatisticalRecord)
+class StatisticalRecordAdmin(admin.ModelAdmin):
+    list_display = ('facility_name', 'category', 'activity_type', 'visit_date', 'source_sheet', 'report')
+    list_filter = ('source_sheet', 'category', 'visit_date')
+    search_fields = ('facility_name', 'activity_type', 'activity_category', 'governorate')
+    autocomplete_fields = ('report',)

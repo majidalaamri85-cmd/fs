@@ -1,0 +1,150 @@
+{% extends 'inspections/base.html' %}
+{% block content %}
+
+<div class="page-actions">
+    <a class="btn" href="{% url 'evaluation_list' %}">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+        التقارير
+    </a>
+</div>
+
+{% if db_error_message %}
+<div class="alert">{{ db_error_message }}</div>
+{% endif %}
+
+<div class="stats-grid">
+    <article class="stat-card">
+        <span>إجمالي التقارير</span>
+        <strong>{{ summary.total_reports }}</strong>
+    </article>
+    <article class="stat-card">
+        <span>متوسط نتائج التقارير</span>
+        <strong>{{ summary.avg_score }}%</strong>
+    </article>
+    <article class="stat-card">
+        <span>السجلات الإحصائية</span>
+        <strong>{{ summary.total_records }}</strong>
+    </article>
+    <article class="stat-card warning">
+        <span>غير مرتبطة بتقرير</span>
+        <strong>{{ summary.unlinked_records }}</strong>
+    </article>
+</div>
+
+<div class="dashboard-grid">
+    <section class="card">
+        <h2>توزيع نتائج التقارير</h2>
+        <div class="bar-list">
+            {% for band in score_bands %}
+            <div class="bar-row">
+                <div class="bar-label">
+                    <b>{{ band.label }}</b>
+                    <span>{{ band.count }} تقرير</span>
+                </div>
+                <div class="bar-track"><span class="bar-fill score-{{ band.class }}" style="width: {{ band.percent }}%"></span></div>
+                <strong>{{ band.percent }}%</strong>
+            </div>
+            {% empty %}
+            <p class="empty-cell">لا توجد تقارير بعد.</p>
+            {% endfor %}
+        </div>
+    </section>
+
+    <section class="card">
+        <h2>السجلات حسب نوع البيان</h2>
+        <div class="bar-list">
+            {% for row in record_categories %}
+            <div class="bar-row">
+                <div class="bar-label">
+                    <b>{{ row.category }}</b>
+                    <span>{{ row.count }} سجل</span>
+                </div>
+                <div class="bar-track"><span class="bar-fill neutral" style="width: {{ row.percent }}%"></span></div>
+                <strong>{{ row.percent }}%</strong>
+            </div>
+            {% empty %}
+            <p class="empty-cell">استورد ملف Excel لعرض السجلات الإحصائية.</p>
+            {% endfor %}
+        </div>
+    </section>
+</div>
+
+<div class="dashboard-grid">
+    <section class="card">
+        <h2>التقارير حسب المحافظة</h2>
+        <div class="table-responsive">
+            <table class="data-table">
+                <tr>
+                    <th>المحافظة</th>
+                    <th>عدد التقارير</th>
+                    <th>متوسط النتيجة</th>
+                </tr>
+                {% for row in by_governorate %}
+                <tr>
+                    <td>{{ row.name }}</td>
+                    <td>{{ row.count }}</td>
+                    <td>{{ row.avg_score }}%</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="3" class="empty-cell">لا توجد بيانات.</td></tr>
+                {% endfor %}
+            </table>
+        </div>
+    </section>
+
+    <section class="card">
+        <h2>التقارير حسب النشاط</h2>
+        <div class="table-responsive">
+            <table class="data-table">
+                <tr>
+                    <th>النشاط</th>
+                    <th>عدد التقارير</th>
+                    <th>متوسط النتيجة</th>
+                </tr>
+                {% for row in by_activity %}
+                <tr>
+                    <td>{{ row.activity_type }}</td>
+                    <td>{{ row.count }}</td>
+                    <td>{{ row.avg_score }}%</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="3" class="empty-cell">لا توجد بيانات.</td></tr>
+                {% endfor %}
+            </table>
+        </div>
+    </section>
+</div>
+
+<section class="card">
+    <h2>آخر السجلات الإحصائية المرتبطة بالمنشآت</h2>
+    <div class="table-responsive">
+        <table class="data-table">
+            <tr>
+                <th>المنشأة</th>
+                <th>نوع البيان</th>
+                <th>النشاط</th>
+                <th>تاريخ الزيارة</th>
+                <th>التقرير</th>
+            </tr>
+            {% for record in recent_records %}
+            <tr>
+                <td>{{ record.facility_name }}</td>
+                <td>{{ record.category }}</td>
+                <td>{{ record.activity_type|default:record.activity_category }}</td>
+                <td>{{ record.visit_date|default:"-" }}</td>
+                <td>
+                    {% if record.report %}
+                    <a class="action-link" href="{% url 'report_detail' record.report.pk %}">عرض التقرير</a>
+                    {% else %}
+                    غير مرتبط
+                    {% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5" class="empty-cell">لا توجد سجلات مستوردة.</td></tr>
+            {% endfor %}
+        </table>
+    </div>
+</section>
+
+{% endblock %}

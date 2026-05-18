@@ -3,9 +3,9 @@ from django.http import HttpResponse, JsonResponse
 from django.contrib import messages
 from django.conf import settings
 from django.utils import timezone
-from django.db.models import Avg, Q
+from django.db.models import Avg, Count, Q
 from django.db.utils import DatabaseError, OperationalError, ProgrammingError
-from .models import Governorate, Wilayat, Section, Item, Evaluation, Response, ResponseImage
+from .models import Governorate, Wilayat, Section, Item, Evaluation, Response, ResponseImage, StatisticalRecord
 from .activity_options import ACTIVITY_OPTIONS
 from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -201,6 +201,76 @@ def get_evaluation_summary(queryset):
     }
 
 
+def as_percent(part, total):
+    return round((part / total) * 100, 1) if total else 0
+
+
+def build_statistics_context():
+    evaluations = Evaluation.objects.all()
+    records = StatisticalRecord.objects.select_related('report').all()
+    total_reports = evaluations.count()
+    total_records = records.count()
+    linked_records = records.filter(report__isnull=False).count()
+
+    score_bands = [
+        {'label': 'ممتاز', 'count': evaluations.filter(score__gte=86).count(), 'class': 'excellent'},
+        {'label': 'جيد', 'count': evaluations.filter(score__gte=70, score__lt=86).count(), 'class': 'good'},
+        {'label': 'مقبول', 'count': evaluations.filter(score__gte=41, score__lt=70).count(), 'class': 'acceptable'},
+        {'label': 'ضعيف', 'count': evaluations.filter(score__lt=41).count(), 'class': 'weak'},
+    ]
+    for band in score_bands:
+        band['percent'] = as_percent(band['count'], total_reports)
+
+    by_governorate = list(
+        evaluations
+        .values('governorate__name')
+        .annotate(count=Count('id'), avg_score=Avg('score'))
+        .order_by('-count', 'governorate__name')[:10]
+    )
+    for row in by_governorate:
+        row['name'] = row.pop('governorate__name') or 'غير محدد'
+        row['avg_score'] = round(row['avg_score'] or 0, 1)
+        row['percent'] = as_percent(row['count'], total_reports)
+
+    by_activity = list(
+        evaluations
+        .exclude(activity_type='')
+        .values('activity_type')
+        .annotate(count=Count('id'), avg_score=Avg('score'))
+        .order_by('-count', 'activity_type')[:10]
+    )
+    for row in by_activity:
+        row['avg_score'] = round(row['avg_score'] or 0, 1)
+        row['percent'] = as_percent(row['count'], total_reports)
+
+    record_categories = list(
+        records
+        .exclude(category='')
+        .values('category')
+        .annotate(count=Count('id'))
+        .order_by('-count', 'category')[:10]
+    )
+    for row in record_categories:
+        row['percent'] = as_percent(row['count'], total_records)
+
+    recent_records = records.order_by('-visit_date', '-updated_at')[:20]
+
+    return {
+        'summary': {
+            'total_reports': total_reports,
+            'avg_score': round(evaluations.aggregate(avg=Avg('score')).get('avg') or 0, 1),
+            'total_records': total_records,
+            'linked_records': linked_records,
+            'unlinked_records': total_records - linked_records,
+        },
+        'score_bands': score_bands,
+        'by_governorate': by_governorate,
+        'by_activity': by_activity,
+        'record_categories': record_categories,
+        'recent_records': recent_records,
+    }
+
+
 def resolve_location(gov_id, wilayat_id):
     governorate = Governorate.objects.filter(id=gov_id).first() if gov_id else None
     wilayat = Wilayat.objects.filter(id=wilayat_id).first() if wilayat_id else None
@@ -248,6 +318,31 @@ def evaluation_list(request):
         'governorates': governorates,
         'db_error_message': error_message,
     })
+
+
+def statistics_dashboard(request):
+    error_message = ''
+    try:
+        context = build_statistics_context()
+    except (OperationalError, ProgrammingError, DatabaseError):
+        context = {
+            'summary': {
+                'total_reports': 0,
+                'avg_score': 0,
+                'total_records': 0,
+                'linked_records': 0,
+                'unlinked_records': 0,
+            },
+            'score_bands': [],
+            'by_governorate': [],
+            'by_activity': [],
+            'record_categories': [],
+            'recent_records': [],
+        }
+        error_message = 'تعذر تحميل الإحصائيات من قاعدة البيانات. تأكد من تطبيق migrations واستيراد ملف Excel عند الحاجة.'
+
+    context['db_error_message'] = error_message
+    return render(request, 'inspections/statistics_dashboard.html', context)
 
 
 def get_reports(request):
@@ -440,10 +535,14 @@ def evaluation_edit(request, pk):
 def report_detail(request, pk):
     evaluation = get_object_or_404(Evaluation, pk=pk)
     responses = evaluation.responses.select_related('item', 'item__section').prefetch_related('images').all()
+    related_statistics = StatisticalRecord.objects.filter(
+        Q(report=evaluation) | Q(facility_name__iexact=evaluation.facility_name)
+    ).order_by('-visit_date', '-updated_at')
     return render(request, 'inspections/report_detail.html', {
         'evaluation': evaluation,
         'responses': responses,
         'haccp_rows': build_haccp_rows(evaluation),
+        'related_statistics': related_statistics,
     })
 
 

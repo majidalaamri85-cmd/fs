@@ -96,6 +96,39 @@ class Evaluation(models.Model):
         return self.facility_name
 
 
+class StatisticalRecord(models.Model):
+    source_sheet = models.CharField(max_length=255, verbose_name='ورقة المصدر')
+    source_row = models.PositiveIntegerField(verbose_name='رقم الصف')
+    category = models.CharField(max_length=255, blank=True, verbose_name='نوع البيان')
+    facility_name = models.CharField(max_length=255, blank=True, db_index=True, verbose_name='اسم المنشأة')
+    activity_type = models.CharField(max_length=255, blank=True, verbose_name='نوع النشاط')
+    activity_category = models.CharField(max_length=255, blank=True, verbose_name='فئة النشاط')
+    governorate = models.CharField(max_length=255, blank=True, verbose_name='المحافظة')
+    visit_date = models.DateField(null=True, blank=True, db_index=True, verbose_name='تاريخ الزيارة')
+    action_taken = models.TextField(blank=True, verbose_name='الإجراء المتخذ')
+    contact_info = models.TextField(blank=True, verbose_name='بيانات التواصل')
+    quality_systems = models.TextField(blank=True, verbose_name='نظم سلامة الغذاء')
+    report = models.ForeignKey(
+        Evaluation,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='statistical_records',
+        verbose_name='التقرير المرتبط',
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='تاريخ الإدخال')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='تاريخ التحديث')
+
+    class Meta:
+        ordering = ['-visit_date', 'facility_name']
+        unique_together = ('source_sheet', 'source_row')
+        verbose_name = 'سجل إحصائي'
+        verbose_name_plural = 'السجلات الإحصائية'
+
+    def __str__(self):
+        return self.facility_name or f'{self.source_sheet} #{self.source_row}'
+
+
 class Response(models.Model):
     STATUS_CHOICES = [
         ('compliant', 'مستوفي'),
