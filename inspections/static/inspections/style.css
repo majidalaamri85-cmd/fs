@@ -663,6 +663,18 @@ textarea{min-height:80px}
     flex-wrap:wrap;
     gap:8px;
 }
+.pagination{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:12px;
+    margin-top:16px;
+    flex-wrap:wrap;
+}
+.pagination span{
+    color:#49645a;
+    font-weight:bold;
+}
 .action-link{
     display:inline-flex;
     align-items:center;

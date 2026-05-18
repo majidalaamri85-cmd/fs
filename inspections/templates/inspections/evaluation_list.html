@@ -132,5 +132,22 @@
 {% endfor %}
 </table>
 </div>
+{% if page_obj and page_obj.paginator.num_pages > 1 %}
+<nav class="pagination" aria-label="صفحات التقارير">
+    {% if page_obj.has_previous %}
+    <a class="btn" href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ page_obj.previous_page_number }}">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+        السابق
+    </a>
+    {% endif %}
+    <span>صفحة {{ page_obj.number }} من {{ page_obj.paginator.num_pages }}</span>
+    {% if page_obj.has_next %}
+    <a class="btn" href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ page_obj.next_page_number }}">
+        التالي
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg>
+    </a>
+    {% endif %}
+</nav>
+{% endif %}
 </div>
 {% endblock %}

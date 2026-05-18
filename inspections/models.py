@@ -94,6 +94,13 @@ class Evaluation(models.Model):
         ordering = ['-created_at']
         verbose_name = 'تقييم'
         verbose_name_plural = 'التقييمات'
+        indexes = [
+            models.Index(fields=['-created_at'], name='eval_created_idx'),
+            models.Index(fields=['visit_date'], name='eval_visit_date_idx'),
+            models.Index(fields=['score'], name='eval_score_idx'),
+            models.Index(fields=['is_draft'], name='eval_is_draft_idx'),
+            models.Index(fields=['governorate', 'visit_date'], name='eval_gov_visit_idx'),
+        ]
 
     def __str__(self):
         return self.facility_name
@@ -148,6 +155,9 @@ class Response(models.Model):
 
     class Meta:
         unique_together = ('evaluation', 'item')
+        indexes = [
+            models.Index(fields=['evaluation', 'status'], name='response_eval_status_idx'),
+        ]
 
 
 class ResponseImage(models.Model):

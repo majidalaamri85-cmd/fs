@@ -3,6 +3,7 @@ from django.http import HttpResponse, JsonResponse
 from django.contrib import messages
 from django.conf import settings
 from django.utils import timezone
+from django.core.paginator import Paginator
 from django.db.models import Avg, Count, Q
 from django.db.utils import DatabaseError, OperationalError, ProgrammingError
 from .models import Governorate, Wilayat, Section, Item, Evaluation, Response, ResponseImage, StatisticalRecord
@@ -109,9 +110,12 @@ def classify_score(score):
 
 def calculate_score(evaluation):
     # HACCP documents are a checklist only; they are intentionally excluded from scoring.
-    responses = evaluation.responses.all()
-    total = responses.exclude(status='na').count()
-    compliant = responses.filter(status='compliant').count()
+    totals = evaluation.responses.aggregate(
+        total=Count('id', filter=~Q(status='na')),
+        compliant=Count('id', filter=Q(status='compliant')),
+    )
+    total = totals['total'] or 0
+    compliant = totals['compliant'] or 0
 
     score = round((compliant / total) * 100, 2) if total else 0
 
@@ -196,13 +200,17 @@ def apply_evaluation_filters(queryset, filters):
 
 
 def get_evaluation_summary(queryset):
-    total = queryset.count()
-    avg_score = queryset.aggregate(avg=Avg('score')).get('avg') or 0
+    data = queryset.aggregate(
+        total=Count('id'),
+        avg_score=Avg('score'),
+        excellent=Count('id', filter=Q(score__gte=86)),
+        needs_attention=Count('id', filter=Q(score__lt=70)),
+    )
     return {
-        'total': total,
-        'avg_score': round(avg_score, 1),
-        'excellent': queryset.filter(score__gte=86).count(),
-        'needs_attention': queryset.filter(score__lt=70).count(),
+        'total': data['total'] or 0,
+        'avg_score': round(data['avg_score'] or 0, 1),
+        'excellent': data['excellent'] or 0,
+        'needs_attention': data['needs_attention'] or 0,
     }
 
 
@@ -213,15 +221,27 @@ def as_percent(part, total):
 def build_statistics_context():
     evaluations = Evaluation.objects.all()
     records = StatisticalRecord.objects.select_related('report').all()
-    total_reports = evaluations.count()
-    total_records = records.count()
-    linked_records = records.filter(report__isnull=False).count()
+    evaluation_totals = evaluations.aggregate(
+        total_reports=Count('id'),
+        avg_score=Avg('score'),
+        excellent=Count('id', filter=Q(score__gte=86)),
+        good=Count('id', filter=Q(score__gte=70, score__lt=86)),
+        acceptable=Count('id', filter=Q(score__gte=41, score__lt=70)),
+        weak=Count('id', filter=Q(score__lt=41)),
+    )
+    record_totals = records.aggregate(
+        total_records=Count('id'),
+        linked_records=Count('id', filter=Q(report__isnull=False)),
+    )
+    total_reports = evaluation_totals['total_reports'] or 0
+    total_records = record_totals['total_records'] or 0
+    linked_records = record_totals['linked_records'] or 0
 
     score_bands = [
-        {'label': 'ممتاز', 'count': evaluations.filter(score__gte=86).count(), 'class': 'excellent'},
-        {'label': 'جيد', 'count': evaluations.filter(score__gte=70, score__lt=86).count(), 'class': 'good'},
-        {'label': 'مقبول', 'count': evaluations.filter(score__gte=41, score__lt=70).count(), 'class': 'acceptable'},
-        {'label': 'ضعيف', 'count': evaluations.filter(score__lt=41).count(), 'class': 'weak'},
+        {'label': 'ممتاز', 'count': evaluation_totals['excellent'] or 0, 'class': 'excellent'},
+        {'label': 'جيد', 'count': evaluation_totals['good'] or 0, 'class': 'good'},
+        {'label': 'مقبول', 'count': evaluation_totals['acceptable'] or 0, 'class': 'acceptable'},
+        {'label': 'ضعيف', 'count': evaluation_totals['weak'] or 0, 'class': 'weak'},
     ]
     for band in score_bands:
         band['percent'] = as_percent(band['count'], total_reports)
@@ -263,7 +283,7 @@ def build_statistics_context():
     return {
         'summary': {
             'total_reports': total_reports,
-            'avg_score': round(evaluations.aggregate(avg=Avg('score')).get('avg') or 0, 1),
+            'avg_score': round(evaluation_totals['avg_score'] or 0, 1),
             'total_records': total_records,
             'linked_records': linked_records,
             'unlinked_records': total_records - linked_records,
@@ -303,22 +323,32 @@ def evaluation_list(request):
     }
 
     error_message = ''
+    query_params = request.GET.copy()
+    query_params.pop('page', None)
     try:
-        evaluations = apply_evaluation_filters(Evaluation.objects.all(), filters)
+        evaluations = apply_evaluation_filters(
+            Evaluation.objects.select_related('governorate', 'wilayat'),
+            filters,
+        )
         results_count = evaluations.count()
         summary = get_evaluation_summary(evaluations)
+        paginator = Paginator(evaluations, 25)
+        page_obj = paginator.get_page(request.GET.get('page'))
         governorates = Governorate.objects.all()
     except (OperationalError, ProgrammingError, DatabaseError):
         evaluations = Evaluation.objects.none()
+        page_obj = None
         results_count = 0
         summary = {'total': 0, 'avg_score': 0, 'excellent': 0, 'needs_attention': 0}
         governorates = Governorate.objects.none()
         error_message = 'تعذر استجلاب التقارير من قاعدة البيانات. تأكد من اتصال DATABASE_URL وتطبيق migrations المطلوبة.'
 
     return render(request, 'inspections/evaluation_list.html', {
-        'evaluations': evaluations,
+        'evaluations': page_obj.object_list if page_obj else evaluations,
+        'page_obj': page_obj,
         'filters': filters,
         'results_count': results_count,
+        'querystring': query_params.urlencode(),
         'summary': summary,
         'governorates': governorates,
         'db_error_message': error_message,
@@ -365,7 +395,7 @@ def get_reports(request):
     }
 
     try:
-        evaluations = apply_evaluation_filters(Evaluation.objects.all(), filters)
+        evaluations = apply_evaluation_filters(Evaluation.objects.all(), filters)[:500]
     except (OperationalError, ProgrammingError, DatabaseError):
         return JsonResponse({
             'reports': [],
@@ -516,7 +546,10 @@ def evaluation_edit(request, pk):
         sections = list(Section.objects.prefetch_related('items').all())
         governorates = list(Governorate.objects.all())
         wilayats = list(evaluation.governorate.wilayats.all()) if evaluation.governorate else []
-        responses_map = {r.item_id: r for r in evaluation.responses.all()}
+        responses_map = {
+            r.item_id: r
+            for r in evaluation.responses.select_related('item').prefetch_related('images')
+        }
     except (OperationalError, ProgrammingError, DatabaseError):
         sections = []
         governorates = []
@@ -543,7 +576,10 @@ def evaluation_edit(request, pk):
 
 
 def report_detail(request, pk):
-    evaluation = get_object_or_404(Evaluation, pk=pk)
+    evaluation = get_object_or_404(
+        Evaluation.objects.select_related('governorate', 'wilayat'),
+        pk=pk,
+    )
     responses = evaluation.responses.select_related('item', 'item__section').prefetch_related('images').all()
     related_statistics = StatisticalRecord.objects.filter(
         Q(report=evaluation) | Q(facility_name__iexact=evaluation.facility_name)
@@ -685,7 +721,10 @@ def add_report_signature(doc):
 
 
 def export_word(request, pk):
-    evaluation = get_object_or_404(Evaluation, pk=pk)
+    evaluation = get_object_or_404(
+        Evaluation.objects.select_related('governorate', 'wilayat'),
+        pk=pk,
+    )
     non_compliant_responses = (
         evaluation.responses
         .filter(status='non_compliant')
