@@ -84,10 +84,10 @@ def build_haccp_rows(evaluation):
 def get_wilayats_by_governorate(request):
     """API endpoint to get wilayats for a selected governorate"""
     gov_id = request.GET.get('governorate_id')
-    if not gov_id:
+    if not gov_id or not str(gov_id).isdigit():
         return JsonResponse({'wilayats': []})
     
-    wilayats = Wilayat.objects.filter(governorate_id=gov_id).values('id', 'name')
+    wilayats = Wilayat.objects.filter(governorate_id=int(gov_id)).order_by('name').values('id', 'name')
     return JsonResponse({'wilayats': list(wilayats)})
 
 

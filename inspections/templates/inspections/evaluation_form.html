@@ -42,20 +42,20 @@
             <input type="text" name="license_number" placeholder="رقم رخصة مزاولة النشاط" value="{{ evaluation.license_number|default:'' }}">
             <input type="text" name="cr_number" placeholder="رقم السجل التجاري" value="{{ evaluation.cr_number|default:'' }}">
             
-            <select id="governorate-select" name="governorate" required>
+            <select id="governorate-select" name="governorate" required data-wilayats-url="{% url 'get_wilayats' %}">
                 <option value="">اختر المحافظة</option>
                 {% for gov in governorates %}
-                    <option value="{{ gov.id }}" {% if evaluation.governorate.id == gov.id %}selected{% endif %}>
+                    <option value="{{ gov.id }}" {% if evaluation and evaluation.governorate_id == gov.id %}selected{% endif %}>
                         {{ gov.name }}
                     </option>
                 {% endfor %}
             </select>
             
-            <select id="wilayat-select" name="wilayat">
+            <select id="wilayat-select" name="wilayat" data-selected-wilayat="{% if evaluation and evaluation.wilayat_id %}{{ evaluation.wilayat_id }}{% endif %}">
                 <option value="">اختر الولاية</option>
                 {% if evaluation.wilayat %}
                     {% for wilayat in wilayats %}
-                        <option value="{{ wilayat.id }}" {% if evaluation.wilayat.id == wilayat.id %}selected{% endif %}>
+                        <option value="{{ wilayat.id }}" {% if evaluation.wilayat_id == wilayat.id %}selected{% endif %}>
                             {{ wilayat.name }}
                         </option>
                     {% endfor %}
@@ -527,25 +527,62 @@ if (teamInput) {
 const governorateSelect = document.getElementById('governorate-select');
 const wilayatSelect = document.getElementById('wilayat-select');
 
-if (governorateSelect) {
-    governorateSelect.addEventListener('change', function() {
-        const governorateId = this.value;
-        
-        if (!governorateId) {
-            wilayatSelect.innerHTML = '<option value="">اختر الولاية</option>';
-            return;
-        }
-        
-        fetch(`/api/wilayats/?governorate_id=${governorateId}`)
-            .then(response => response.json())
-            .then(data => {
-                let html = '<option value="">اختر الولاية</option>';
-                data.wilayats.forEach(wilayat => {
-                    html += `<option value="${wilayat.id}">${wilayat.name}</option>`;
-                });
-                wilayatSelect.innerHTML = html;
-            });
+function setWilayatOptions(options, selectedWilayatId = "") {
+    if (!wilayatSelect) return;
+
+    wilayatSelect.innerHTML = "";
+    wilayatSelect.appendChild(new Option("اختر الولاية", ""));
+
+    options.forEach(wilayat => {
+        const option = new Option(wilayat.name, wilayat.id);
+        option.selected = String(wilayat.id) === String(selectedWilayatId);
+        wilayatSelect.appendChild(option);
     });
+}
+
+function loadWilayats(governorateId, selectedWilayatId = "") {
+    if (!wilayatSelect) return;
+
+    if (!governorateId) {
+        setWilayatOptions([]);
+        wilayatSelect.disabled = true;
+        return;
+    }
+
+    const url = new URL(governorateSelect.dataset.wilayatsUrl || "/api/wilayats/", window.location.origin);
+    url.searchParams.set("governorate_id", governorateId);
+
+    wilayatSelect.disabled = true;
+    wilayatSelect.innerHTML = '<option value="">جاري تحميل الولايات...</option>';
+
+    fetch(url)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error("تعذر تحميل الولايات");
+            }
+            return response.json();
+        })
+        .then(data => {
+            setWilayatOptions(data.wilayats || [], selectedWilayatId);
+            wilayatSelect.disabled = false;
+        })
+        .catch(() => {
+            wilayatSelect.innerHTML = '<option value="">تعذر تحميل الولايات</option>';
+            wilayatSelect.disabled = false;
+        });
+}
+
+if (governorateSelect && wilayatSelect) {
+    governorateSelect.addEventListener('change', function() {
+        wilayatSelect.dataset.selectedWilayat = "";
+        loadWilayats(this.value);
+    });
+
+    if (governorateSelect.value && wilayatSelect.options.length <= 1) {
+        loadWilayats(governorateSelect.value, wilayatSelect.dataset.selectedWilayat || "");
+    } else if (!governorateSelect.value) {
+        wilayatSelect.disabled = true;
+    }
 }
 
 const expandAllButton = document.getElementById("expand-all");
