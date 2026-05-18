@@ -361,6 +361,20 @@ select{
 .wide-field{
     grid-column:1/-1;
 }
+.location-capture{
+    display:grid;
+    grid-template-columns:minmax(220px,1fr) auto auto;
+    gap:10px;
+    align-items:center;
+}
+.location-capture small{
+    grid-column:1/-1;
+    color:#49645a;
+    font-weight:bold;
+}
+.hidden-link{
+    display:none !important;
+}
 .score-live-panel{
     position:sticky;
     top:0;
@@ -1033,6 +1047,9 @@ textarea{min-height:80px}
     .form-utilities{
         grid-template-columns:1fr;
         gap:8px;
+    }
+    .location-capture{
+        grid-template-columns:1fr;
     }
     #items-search{
         font-size:14px;

@@ -64,6 +64,20 @@
             
             <input type="text" name="contact_name" placeholder="اسم المسؤول" value="{{ evaluation.contact_name|default:'' }}">
             <input type="text" name="contact_phone" placeholder="رقم التواصل" value="{{ evaluation.contact_phone|default:'' }}">
+            <div class="location-capture wide-field">
+                <input type="hidden" id="location-latitude" name="location_latitude" value="{{ evaluation.location_latitude|default:'' }}">
+                <input type="hidden" id="location-longitude" name="location_longitude" value="{{ evaluation.location_longitude|default:'' }}">
+                <input type="url" id="location-url" name="location_url" placeholder="رابط الموقع المباشر" value="{{ evaluation.location_url|default:'' }}" readonly>
+                <button type="button" class="btn" id="capture-location">
+                    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2v4"/><path d="M12 18v4"/><path d="M2 12h4"/><path d="M18 12h4"/><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8"/></svg>
+                    الموقع المباشر
+                </button>
+                <a class="btn location-open {% if not evaluation.location_url %}hidden-link{% endif %}" id="open-location" href="{{ evaluation.location_url|default:'#' }}" target="_blank" rel="noopener">
+                    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3h7v7"/><path d="M10 14L21 3"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/></svg>
+                    فتح
+                </a>
+                <small id="location-status"></small>
+            </div>
         </div>
 
         <div class="grid extra-info-grid">
@@ -520,6 +534,62 @@ if (teamInput) {
             event.preventDefault();
             addTeamMember();
         }
+    });
+}
+
+const captureLocationButton = document.getElementById("capture-location");
+const locationLatitude = document.getElementById("location-latitude");
+const locationLongitude = document.getElementById("location-longitude");
+const locationUrl = document.getElementById("location-url");
+const openLocationLink = document.getElementById("open-location");
+const locationStatus = document.getElementById("location-status");
+
+function setLocationStatus(message) {
+    if (locationStatus) {
+        locationStatus.textContent = message;
+    }
+}
+
+function updateLocationFields(latitude, longitude) {
+    const lat = Number(latitude).toFixed(7);
+    const lng = Number(longitude).toFixed(7);
+    const url = `https://www.google.com/maps?q=${lat},${lng}`;
+
+    if (locationLatitude) locationLatitude.value = lat;
+    if (locationLongitude) locationLongitude.value = lng;
+    if (locationUrl) locationUrl.value = url;
+    if (openLocationLink) {
+        openLocationLink.href = url;
+        openLocationLink.classList.remove("hidden-link");
+    }
+    setLocationStatus("تم التقاط الموقع");
+}
+
+if (captureLocationButton) {
+    captureLocationButton.addEventListener("click", () => {
+        if (!navigator.geolocation) {
+            setLocationStatus("المتصفح لا يدعم تحديد الموقع");
+            return;
+        }
+
+        captureLocationButton.disabled = true;
+        setLocationStatus("جاري التقاط الموقع...");
+
+        navigator.geolocation.getCurrentPosition(
+            position => {
+                updateLocationFields(position.coords.latitude, position.coords.longitude);
+                captureLocationButton.disabled = false;
+            },
+            () => {
+                setLocationStatus("تعذر التقاط الموقع");
+                captureLocationButton.disabled = false;
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 15000,
+                maximumAge: 0,
+            }
+        );
     });
 }
 

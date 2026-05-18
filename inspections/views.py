@@ -138,6 +138,11 @@ def parse_float(value):
         return None
 
 
+def parse_coordinate(value):
+    parsed = parse_float(value)
+    return round(parsed, 7) if parsed is not None else None
+
+
 def apply_evaluation_filters(queryset, filters):
     query = filters.get('q', '').strip()
     license_number = filters.get('license_number', '').strip()
@@ -398,6 +403,7 @@ def save_evaluation_from_request(request, evaluation=None):
         'permitted_daily_production_rate',
         'water_source',
         'final_product_storage_area',
+        'location_url',
         'haccp_manual',
         'iso_22000_certificate',
         'haccp_certificate',
@@ -417,6 +423,8 @@ def save_evaluation_from_request(request, evaluation=None):
             cr_number=request.POST.get('cr_number', ''),
             governorate=governorate,
             wilayat=wilayat,
+            location_latitude=parse_coordinate(request.POST.get('location_latitude')),
+            location_longitude=parse_coordinate(request.POST.get('location_longitude')),
             contact_name=request.POST.get('contact_name', ''),
             contact_phone=request.POST.get('contact_phone', ''),
             visit_date=request.POST.get('visit_date'),
@@ -432,6 +440,8 @@ def save_evaluation_from_request(request, evaluation=None):
         evaluation.cr_number = request.POST.get('cr_number', '')
         evaluation.governorate = governorate
         evaluation.wilayat = wilayat
+        evaluation.location_latitude = parse_coordinate(request.POST.get('location_latitude'))
+        evaluation.location_longitude = parse_coordinate(request.POST.get('location_longitude'))
         evaluation.contact_name = request.POST.get('contact_name', '')
         evaluation.contact_phone = request.POST.get('contact_phone', '')
         evaluation.visit_date = request.POST.get('visit_date')
@@ -712,6 +722,7 @@ def export_word(request, pk):
         ('رقم السجل التجاري', evaluation.cr_number),
         ('المحافظة', evaluation.governorate.name if evaluation.governorate else ''),
         ('الولاية', evaluation.wilayat.name if evaluation.wilayat else ''),
+        ('الموقع المباشر', evaluation.location_url),
         ('تاريخ الزيارة', str(evaluation.visit_date)),
         ('عدد الورديات', evaluation.shift_count),
         ('عدد العاملين في الوردية', evaluation.workers_per_shift),

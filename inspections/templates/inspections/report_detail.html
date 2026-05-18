@@ -33,6 +33,13 @@
 <p><b>السجل التجاري:</b> {{ evaluation.cr_number }}</p>
 <p><b>المحافظة:</b> {{ evaluation.governorate.name }}</p>
 <p><b>الولاية:</b> {{ evaluation.wilayat.name }}</p>
+<p><b>الموقع المباشر:</b>
+{% if evaluation.location_url %}
+<a class="action-link" href="{{ evaluation.location_url }}" target="_blank" rel="noopener">فتح الموقع</a>
+{% else %}
+غير محدد
+{% endif %}
+</p>
 <p><b>تاريخ الزيارة:</b> {{ evaluation.visit_date }}</p>
 <p><b>فريق التقييم:</b><br>{{ evaluation.evaluation_team|linebreaksbr }}</p>
 <p><b>الحالة:</b> {% if evaluation.is_draft %}مسودة{% else %}معتمد{% endif %}</p>

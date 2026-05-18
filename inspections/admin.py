@@ -38,7 +38,7 @@ class ResponseInline(admin.TabularInline):
 @admin.register(Evaluation)
 class EvaluationAdmin(admin.ModelAdmin):
     list_display = ('facility_name', 'visit_date', 'score', 'classification', 'is_draft')
-    search_fields = ('facility_name', 'license_number', 'cr_number')
+    search_fields = ('facility_name', 'license_number', 'cr_number', 'location_url')
     list_filter = ('classification', 'is_draft', 'governorate')
     inlines = [ResponseInline]
 
