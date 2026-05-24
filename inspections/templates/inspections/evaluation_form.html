@@ -4,6 +4,7 @@
 
 <form method="post" enctype="multipart/form-data" class="form-card">
 {% csrf_token %}
+<div id="deleted-images-fields"></div>
 
 {% if db_error_message %}
 <div class="alert alert-warning" role="alert">{{ db_error_message }}</div>
@@ -25,7 +26,10 @@
 
 <div class="section-card">
     <button type="button" class="section-toggle">
-        تسجيل بيانات المنشأة
+        <span class="section-title-text">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/><path d="M9 9h.01M9 13h.01M9 17h.01"/></svg>
+            تسجيل بيانات المنشأة
+        </span>
         <span class="toggle-icon">+</span>
     </button>
 
@@ -100,7 +104,10 @@
 {% for section in sections %}
 <div class="section-card">
     <button type="button" class="section-toggle">
-        <span class="section-title-text"><span class="number-prefix">{{ section.order }}.</span> {{ section.title }}</span>
+        <span class="section-title-text">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16"/><path d="M4 12h16"/><path d="M4 19h16"/></svg>
+            <span class="number-prefix">{{ section.order }}.</span> {{ section.title }}
+        </span>
         <span class="toggle-icon">+</span>
     </button>
 
@@ -320,6 +327,28 @@ document.querySelectorAll(".image-attach-btn").forEach(btn => {
         const container = this.closest(".image-upload-container");
         const fileInput = container.querySelector(".image-input");
         if (fileInput) fileInput.click();
+    });
+});
+
+document.querySelectorAll(".existing-images .img-delete-btn").forEach(btn => {
+    btn.addEventListener("click", function(e) {
+        e.preventDefault();
+        const imageItem = this.closest(".image-item");
+        const imageId = imageItem?.dataset.imgId;
+        const deletedImagesFields = document.getElementById("deleted-images-fields");
+        if (!imageId || !deletedImagesFields) return;
+
+        const alreadyMarked = Array.from(deletedImagesFields.querySelectorAll("input[name='deleted_images']"))
+            .some(input => input.value === imageId);
+        if (!alreadyMarked) {
+            const hiddenInput = document.createElement("input");
+            hiddenInput.type = "hidden";
+            hiddenInput.name = "deleted_images";
+            hiddenInput.value = imageId;
+            deletedImagesFields.appendChild(hiddenInput);
+        }
+
+        imageItem.remove();
     });
 });
 

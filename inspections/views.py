@@ -124,6 +124,83 @@ def calculate_score(evaluation):
     evaluation.save()
 
 
+def is_high_priority(priority):
+    return bool(priority and ('عالية' in priority or 'high' in priority.lower()))
+
+
+def build_evaluation_insights(evaluation, responses, related_statistics):
+    responses = list(responses)
+    related_statistics = list(related_statistics)
+    scored_responses = [r for r in responses if r.status != 'na']
+    non_compliant = [r for r in responses if r.status == 'non_compliant']
+    compliant_count = len([r for r in scored_responses if r.status == 'compliant'])
+    high_priority = [r for r in non_compliant if is_high_priority(r.item.priority)]
+    missing_photos = [r for r in non_compliant if not list(r.images.all())]
+    missing_corrective = [
+        r for r in non_compliant
+        if not r.corrective_action.strip() or not r.correction_duration.strip()
+    ]
+
+    section_counts = {}
+    for response in non_compliant:
+        section_title = response.item.section.title
+        section_counts[section_title] = section_counts.get(section_title, 0) + 1
+    top_sections = [
+        {'name': name, 'count': count}
+        for name, count in sorted(section_counts.items(), key=lambda item: item[1], reverse=True)[:3]
+    ]
+
+    haccp_rows = build_haccp_rows(evaluation)
+    missing_haccp = [row for row in haccp_rows if row.get('exists') == 'no']
+
+    if evaluation.score < 41 or len(high_priority) >= 3:
+        risk_level = 'حرج'
+        risk_class = 'critical'
+    elif evaluation.score < 70 or high_priority:
+        risk_level = 'مرتفع'
+        risk_class = 'high'
+    elif evaluation.score < 86 or non_compliant:
+        risk_level = 'متوسط'
+        risk_class = 'medium'
+    else:
+        risk_level = 'منخفض'
+        risk_class = 'low'
+
+    recommendations = []
+    if high_priority:
+        recommendations.append('ابدأ بإغلاق البنود عالية الأولوية قبل البنود التشغيلية الأقل أثراً.')
+    if missing_corrective:
+        recommendations.append('استكمل الإجراء التصحيحي ومدة التصحيح لكل مخالفة قبل اعتماد المتابعة.')
+    if missing_photos:
+        recommendations.append('أرفق صوراً للمخالفات التي لا تحتوي على توثيق بصري لتسهيل التحقق اللاحق.')
+    if missing_haccp:
+        recommendations.append('راجع مستندات HACCP وشهادات الجودة الناقصة واربطها بخطة التصحيح.')
+    if not recommendations:
+        recommendations.append('حافظ على مستوى الالتزام الحالي وجدول متابعة دورية للمنشأة.')
+
+    action_items = sorted(
+        non_compliant,
+        key=lambda r: (0 if is_high_priority(r.item.priority) else 1, r.item.number),
+    )[:5]
+
+    return {
+        'risk_level': risk_level,
+        'risk_class': risk_class,
+        'total_items': len(scored_responses),
+        'compliant_count': compliant_count,
+        'non_compliant_count': len(non_compliant),
+        'high_priority_count': len(high_priority),
+        'missing_photos_count': len(missing_photos),
+        'missing_corrective_count': len(missing_corrective),
+        'missing_haccp_count': len(missing_haccp),
+        'top_sections': top_sections,
+        'recommendations': recommendations,
+        'action_items': action_items,
+        'related_records_count': len(related_statistics),
+        'latest_related_record': related_statistics[0] if related_statistics else None,
+    }
+
+
 def parse_iso_date(value):
     if not value:
         return None
@@ -279,6 +356,30 @@ def build_statistics_context():
         row['percent'] = as_percent(row['count'], total_records)
 
     recent_records = records.order_by('-visit_date', '-updated_at')[:20]
+    common_non_compliant_sections = list(
+        Response.objects
+        .filter(status='non_compliant')
+        .values('item__section__title')
+        .annotate(count=Count('id'))
+        .order_by('-count', 'item__section__title')[:5]
+    )
+    total_common_non_compliant = sum(item['count'] for item in common_non_compliant_sections)
+    for row in common_non_compliant_sections:
+        row['name'] = row.pop('item__section__title') or 'غير محدد'
+        row['percent'] = as_percent(row['count'], total_common_non_compliant)
+
+    risk_reports = Evaluation.objects.select_related('governorate').filter(score__lt=70).order_by('score', '-visit_date')[:5]
+    weak_count = evaluation_totals['weak'] or 0
+    needs_attention_count = weak_count + (evaluation_totals['acceptable'] or 0)
+    smart_alerts = []
+    if total_reports and needs_attention_count:
+        smart_alerts.append(f'{as_percent(needs_attention_count, total_reports)}% من التقارير تحتاج متابعة تحسين أو تدخل.')
+    if common_non_compliant_sections:
+        smart_alerts.append(f'أكثر محور تتكرر فيه المخالفات: {common_non_compliant_sections[0]["name"]}.')
+    if total_records and total_records - linked_records:
+        smart_alerts.append('توجد سجلات إحصائية غير مرتبطة بتقارير، وهذا يقلل دقة القراءة التاريخية.')
+    if not smart_alerts:
+        smart_alerts.append('مؤشرات النظام مستقرة ولا توجد تنبيهات رئيسية حالياً.')
 
     return {
         'summary': {
@@ -293,6 +394,9 @@ def build_statistics_context():
         'by_activity': by_activity,
         'record_categories': record_categories,
         'recent_records': recent_records,
+        'common_non_compliant_sections': common_non_compliant_sections,
+        'risk_reports': risk_reports,
+        'smart_alerts': smart_alerts,
     }
 
 
@@ -373,6 +477,9 @@ def statistics_dashboard(request):
             'by_activity': [],
             'record_categories': [],
             'recent_records': [],
+            'common_non_compliant_sections': [],
+            'risk_reports': [],
+            'smart_alerts': [],
         }
         error_message = 'تعذر تحميل الإحصائيات من قاعدة البيانات. تأكد من تطبيق migrations واستيراد ملف Excel عند الحاجة.'
 
@@ -482,12 +589,30 @@ def save_evaluation_from_request(request, evaluation=None):
             setattr(evaluation, field, request.POST.get(field, ''))
         evaluation.save()
 
+    deleted_image_ids = [
+        image_id
+        for image_id in request.POST.getlist('deleted_images')
+        if str(image_id).isdigit()
+    ]
+    if deleted_image_ids:
+        images_to_delete = ResponseImage.objects.filter(
+            id__in=deleted_image_ids,
+            response__evaluation=evaluation,
+        )
+        for response_image in images_to_delete:
+            response_image.image.delete(save=False)
+            response_image.delete()
+
     for section in sections:
         for item in section.items.all():
             status = request.POST.get(f'status_{item.id}', '').strip()
 
             if not status:
-                Response.objects.filter(evaluation=evaluation, item=item).delete()
+                response = Response.objects.filter(evaluation=evaluation, item=item).first()
+                if response and response.images.exists():
+                    continue
+                if response:
+                    response.delete()
                 continue
 
             response, created = Response.objects.update_or_create(
@@ -584,11 +709,13 @@ def report_detail(request, pk):
     related_statistics = StatisticalRecord.objects.filter(
         Q(report=evaluation) | Q(facility_name__iexact=evaluation.facility_name)
     ).order_by('-visit_date', '-updated_at')
+    smart_insights = build_evaluation_insights(evaluation, responses, related_statistics)
     return render(request, 'inspections/report_detail.html', {
         'evaluation': evaluation,
         'responses': responses,
         'haccp_rows': build_haccp_rows(evaluation),
         'related_statistics': related_statistics,
+        'smart_insights': smart_insights,
     })
 
 

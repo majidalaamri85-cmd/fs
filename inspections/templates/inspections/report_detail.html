@@ -2,7 +2,10 @@
 {% block content %}
 
 <div class="report-header card">
-    <h2>تقرير تقييم منشأة غذائية</h2>
+    <div class="card-heading">
+        <span class="heading-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6l1 2h3v16H5V5h3z"/><path d="M9 12h6M9 16h4"/></svg></span>
+        <h2>تقرير تقييم منشأة غذائية</h2>
+    </div>
     <div class="score-box score-{% if evaluation.score >= 86 %}excellent{% elif evaluation.score >= 70 %}good{% elif evaluation.score >= 41 %}acceptable{% else %}weak{% endif %}">
         <div>{{ evaluation.score }}%</div>
         <span>الوضع العام للمنشأة: {{ evaluation.classification }}</span>
@@ -24,8 +27,85 @@
     </a>
 </div>
 
+<section class="card smart-analysis">
+    <div class="analysis-heading">
+        <div>
+            <h3>تحليل ذكي للتقرير</h3>
+            <p>قراءة سريعة للمخاطر ونقاط المتابعة بناءً على نتيجة التقييم والمخالفات والتوثيق.</p>
+        </div>
+        <span class="risk-pill risk-{{ smart_insights.risk_class }}">{{ smart_insights.risk_level }}</span>
+    </div>
+    <div class="insight-grid">
+        <article class="insight-tile">
+            <span>البنود المقيمة</span>
+            <strong>{{ smart_insights.total_items }}</strong>
+        </article>
+        <article class="insight-tile">
+            <span>المخالفات</span>
+            <strong>{{ smart_insights.non_compliant_count }}</strong>
+        </article>
+        <article class="insight-tile">
+            <span>أولوية عالية</span>
+            <strong>{{ smart_insights.high_priority_count }}</strong>
+        </article>
+        <article class="insight-tile">
+            <span>تحتاج توثيق صور</span>
+            <strong>{{ smart_insights.missing_photos_count }}</strong>
+        </article>
+        <article class="insight-tile">
+            <span>إجراءات ناقصة</span>
+            <strong>{{ smart_insights.missing_corrective_count }}</strong>
+        </article>
+        <article class="insight-tile">
+            <span>متطلبات HACCP ناقصة</span>
+            <strong>{{ smart_insights.missing_haccp_count }}</strong>
+        </article>
+    </div>
+    <div class="analysis-columns">
+        <div>
+            <h4>التوصيات</h4>
+            <ul class="clean-list">
+                {% for recommendation in smart_insights.recommendations %}
+                <li>{{ recommendation }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        <div>
+            <h4>أكثر المحاور تأثراً</h4>
+            <ul class="clean-list">
+                {% for section in smart_insights.top_sections %}
+                <li>{{ section.name }} - {{ section.count }} مخالفة</li>
+                {% empty %}
+                <li>لا توجد محاور مخالفة في هذا التقرير.</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+    <div class="table-responsive compact-table">
+        <table class="data-table">
+            <tr>
+                <th>إجراءات متابعة مقترحة</th>
+                <th>الأولوية</th>
+                <th>مدة التصحيح</th>
+            </tr>
+            {% for item in smart_insights.action_items %}
+            <tr>
+                <td><span class="number-prefix">{{ item.item.number }}.</span> {{ item.corrective_action|default:item.item.corrective_action }}</td>
+                <td>{{ item.item.priority|default:"-" }}</td>
+                <td>{{ item.correction_duration|default:"غير محددة" }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="3" class="empty-cell">لا توجد إجراءات متابعة مطلوبة.</td></tr>
+            {% endfor %}
+        </table>
+    </div>
+</section>
+
 <div class="card">
-<h3>بيانات المنشأة</h3>
+<div class="card-heading">
+    <span class="heading-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/><path d="M9 9h.01M9 13h.01M9 17h.01"/></svg></span>
+    <h3>بيانات المنشأة</h3>
+</div>
 <div class="info-grid">
 <p><b>الاسم:</b> {{ evaluation.facility_name }}</p>
 <p><b>النشاط:</b> {{ evaluation.activity_type }}</p>

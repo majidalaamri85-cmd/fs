@@ -9,25 +9,48 @@
 
 <div class="stats-grid">
     <article class="stat-card">
-        <span>إجمالي التقارير</span>
-        <strong>{{ summary.total }}</strong>
+        <div class="stat-icon">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6l1 2h3v16H5V5h3z"/><path d="M9 12h6M9 16h4"/></svg>
+        </div>
+        <div>
+            <span>إجمالي التقارير</span>
+            <strong>{{ summary.total }}</strong>
+        </div>
     </article>
     <article class="stat-card">
-        <span>متوسط النتائج</span>
-        <strong>{{ summary.avg_score }}%</strong>
+        <div class="stat-icon accent-blue">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-7"/></svg>
+        </div>
+        <div>
+            <span>متوسط النتائج</span>
+            <strong>{{ summary.avg_score }}%</strong>
+        </div>
     </article>
     <article class="stat-card">
-        <span>مستوى ممتاز (86%+)</span>
-        <strong>{{ summary.excellent }}</strong>
+        <div class="stat-icon accent-green">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"/><path d="M12 3l2.4 4.9 5.4.8-3.9 3.8.9 5.4L12 15.4 7.2 18l.9-5.4-3.9-3.8 5.4-.8z"/></svg>
+        </div>
+        <div>
+            <span>مستوى ممتاز (86%+)</span>
+            <strong>{{ summary.excellent }}</strong>
+        </div>
     </article>
     <article class="stat-card warning">
-        <span>بحاجة متابعة (&lt; 70%)</span>
-        <strong>{{ summary.needs_attention }}</strong>
+        <div class="stat-icon accent-amber">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg>
+        </div>
+        <div>
+            <span>بحاجة متابعة (&lt; 70%)</span>
+            <strong>{{ summary.needs_attention }}</strong>
+        </div>
     </article>
 </div>
 
 <div class="card">
-<h2>قائمة التقارير</h2>
+<div class="card-heading">
+    <span class="heading-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></span>
+    <h2>قائمة التقارير</h2>
+</div>
 {% if db_error_message %}
 <div class="alert">{{ db_error_message }}</div>
 {% endif %}

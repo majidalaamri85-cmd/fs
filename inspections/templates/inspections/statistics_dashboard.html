@@ -14,22 +14,98 @@
 
 <div class="stats-grid">
     <article class="stat-card">
-        <span>إجمالي التقارير</span>
-        <strong>{{ summary.total_reports }}</strong>
+        <div class="stat-icon">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6l1 2h3v16H5V5h3z"/><path d="M9 12h6M9 16h4"/></svg>
+        </div>
+        <div>
+            <span>إجمالي التقارير</span>
+            <strong>{{ summary.total_reports }}</strong>
+        </div>
     </article>
     <article class="stat-card">
-        <span>متوسط نتائج التقارير</span>
-        <strong>{{ summary.avg_score }}%</strong>
+        <div class="stat-icon accent-blue">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-7"/></svg>
+        </div>
+        <div>
+            <span>متوسط نتائج التقارير</span>
+            <strong>{{ summary.avg_score }}%</strong>
+        </div>
     </article>
     <article class="stat-card">
-        <span>السجلات الإحصائية</span>
-        <strong>{{ summary.total_records }}</strong>
+        <div class="stat-icon accent-green">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19.5V5a2 2 0 0 1 2-2h11v18H6a2 2 0 0 1-2-1.5Z"/><path d="M8 7h5M8 11h5M8 15h3"/></svg>
+        </div>
+        <div>
+            <span>السجلات الإحصائية</span>
+            <strong>{{ summary.total_records }}</strong>
+        </div>
     </article>
     <article class="stat-card warning">
-        <span>غير مرتبطة بتقرير</span>
-        <strong>{{ summary.unlinked_records }}</strong>
+        <div class="stat-icon accent-amber">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg>
+        </div>
+        <div>
+            <span>غير مرتبطة بتقرير</span>
+            <strong>{{ summary.unlinked_records }}</strong>
+        </div>
     </article>
 </div>
+
+<section class="card smart-analysis">
+    <div class="analysis-heading">
+        <div>
+            <h2>تحليل ذكي عام</h2>
+            <p>تنبيهات تشغيلية مستخرجة من التقارير والسجلات الإحصائية لمساندة قرار المتابعة.</p>
+        </div>
+    </div>
+    <div class="analysis-columns">
+        <div>
+            <h4>تنبيهات</h4>
+            <ul class="clean-list">
+                {% for alert in smart_alerts %}
+                <li>{{ alert }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        <div>
+            <h4>أكثر محاور المخالفات تكراراً</h4>
+            <div class="bar-list">
+                {% for row in common_non_compliant_sections %}
+                <div class="bar-row compact">
+                    <div class="bar-label">
+                        <b>{{ row.name }}</b>
+                        <span>{{ row.count }} مخالفة</span>
+                    </div>
+                    <div class="bar-track"><span class="bar-fill risk-fill" style="width: {{ row.percent }}%"></span></div>
+                    <strong>{{ row.percent }}%</strong>
+                </div>
+                {% empty %}
+                <p class="empty-cell">لا توجد مخالفات مسجلة بعد.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    <div class="table-responsive compact-table">
+        <table class="data-table">
+            <tr>
+                <th>تقارير تحتاج أولوية متابعة</th>
+                <th>المحافظة</th>
+                <th>النتيجة</th>
+                <th>التقرير</th>
+            </tr>
+            {% for report in risk_reports %}
+            <tr>
+                <td>{{ report.facility_name }}</td>
+                <td>{{ report.governorate.name|default:"غير محدد" }}</td>
+                <td>{{ report.score }}%</td>
+                <td><a class="action-link" href="{% url 'report_detail' report.pk %}">عرض التقرير</a></td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4" class="empty-cell">لا توجد تقارير منخفضة النتيجة حالياً.</td></tr>
+            {% endfor %}
+        </table>
+    </div>
+</section>
 
 <div class="dashboard-grid">
     <section class="card">
