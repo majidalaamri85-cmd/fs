@@ -2,6 +2,17 @@
 {% load inspection_extras %}
 {% block content %}
 
+<section class="page-hero compact-hero">
+    <div>
+        <span class="eyebrow">{% if evaluation %}تحديث التقرير{% else %}زيارة جديدة{% endif %}</span>
+        <h2>{% if evaluation %}تعديل تقييم المنشأة{% else %}إنشاء تقييم منشأة غذائية{% endif %}</h2>
+        <p>سجّل بيانات الزيارة والبنود والمرفقات، ثم احفظ التقرير لحساب النتيجة تلقائياً.</p>
+    </div>
+    <div class="hero-mark" aria-hidden="true">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+    </div>
+</section>
+
 <form method="post" enctype="multipart/form-data" class="form-card">
 {% csrf_token %}
 

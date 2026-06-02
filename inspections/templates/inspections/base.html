@@ -8,7 +8,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>نظام تقييم المنشآت الغذائية</title>
-    <link rel="stylesheet" href="{% static 'inspections/style.css' %}?v=14">
+    <link rel="stylesheet" href="{% static 'inspections/style.css' %}?v=15">
 </head>
 <body>
 <header class="topbar">
@@ -25,15 +25,15 @@
             <small id="clock-date">--</small>
         </div>
         <nav>
-            <a href="{% url 'evaluation_list' %}">
+            <a href="{% url 'evaluation_list' %}" {% if request.resolver_match.url_name == 'evaluation_list' %}class="active"{% endif %}>
                 <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
                 التقارير
             </a>
-            <a href="{% url 'statistics_dashboard' %}">
+            <a href="{% url 'statistics_dashboard' %}" {% if request.resolver_match.url_name == 'statistics_dashboard' %}class="active"{% endif %}>
                 <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-7"/><path d="M18 7h1v1"/></svg>
                 الإحصائيات
             </a>
-            <a href="{% url 'evaluation_form' %}">
+            <a href="{% url 'evaluation_form' %}" {% if request.resolver_match.url_name == 'evaluation_form' %}class="active"{% endif %}>
                 <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
                 تقييم جديد
             </a>
@@ -50,6 +50,11 @@
 
 {% block content %}{% endblock %}
 </main>
+
+<footer class="site-footer">
+    <span>مركز سلامة وجودة الغذاء</span>
+    <small>نظام تقييم المنشآت الغذائية</small>
+</footer>
 
 <script>
 function updateSiteClock() {
