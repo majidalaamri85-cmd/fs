@@ -4,6 +4,7 @@ from django.contrib import messages
 from django.conf import settings
 from django.utils import timezone
 from django.core.paginator import Paginator
+from django.db import transaction
 from django.db.models import Avg, Count, Q
 from django.db.utils import DatabaseError, OperationalError, ProgrammingError
 from .models import Governorate, Wilayat, Section, Item, Evaluation, Response, ResponseImage, StatisticalRecord
@@ -526,6 +527,7 @@ def get_reports(request):
     return JsonResponse({'reports': data, 'count': len(data)})
 
 
+@transaction.atomic
 def save_evaluation_from_request(request, evaluation=None):
     sections = Section.objects.prefetch_related('items').all()
     extra_fields = [
@@ -588,20 +590,6 @@ def save_evaluation_from_request(request, evaluation=None):
         for field in extra_fields:
             setattr(evaluation, field, request.POST.get(field, ''))
         evaluation.save()
-
-    deleted_image_ids = [
-        image_id
-        for image_id in request.POST.getlist('deleted_images')
-        if str(image_id).isdigit()
-    ]
-    if deleted_image_ids:
-        images_to_delete = ResponseImage.objects.filter(
-            id__in=deleted_image_ids,
-            response__evaluation=evaluation,
-        )
-        for response_image in images_to_delete:
-            response_image.image.delete(save=False)
-            response_image.delete()
 
     for section in sections:
         for item in section.items.all():

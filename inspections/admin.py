@@ -30,6 +30,8 @@ class ItemAdmin(admin.ModelAdmin):
 class ResponseImageInline(admin.TabularInline):
     model = ResponseImage
     extra = 0
+    can_delete = False
+    readonly_fields = ('image', 'uploaded_at')
 
 class ResponseInline(admin.TabularInline):
     model = Response
@@ -37,7 +39,7 @@ class ResponseInline(admin.TabularInline):
 
 @admin.register(Evaluation)
 class EvaluationAdmin(admin.ModelAdmin):
-    list_display = ('facility_name', 'visit_date', 'score', 'classification', 'is_draft')
+    list_display = ('facility_name', 'visit_date', 'score', 'classification', 'is_draft', 'updated_at')
     search_fields = ('facility_name', 'license_number', 'cr_number', 'location_url')
     list_filter = ('classification', 'is_draft', 'governorate')
     inlines = [ResponseInline]

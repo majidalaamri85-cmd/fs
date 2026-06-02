@@ -89,6 +89,7 @@ class Evaluation(models.Model):
     classification = models.CharField(max_length=255, blank=True, verbose_name='الوضع العام للمنشأة')
     is_draft = models.BooleanField(default=True, verbose_name='مسودة')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='تاريخ الإنشاء')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='تاريخ آخر تعديل')
 
     class Meta:
         ordering = ['-created_at']

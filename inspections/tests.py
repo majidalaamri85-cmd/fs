@@ -1,4 +1,7 @@
-from django.test import RequestFactory, TestCase
+import tempfile
+
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import RequestFactory, TestCase, override_settings
 
 from .models import Evaluation, Item, Response, ResponseImage, Section
 from .views import build_evaluation_insights, save_evaluation_from_request
@@ -6,6 +9,9 @@ from .views import build_evaluation_insights, save_evaluation_from_request
 
 class EvaluationImageSaveTests(TestCase):
     def setUp(self):
+        self.media_directory = tempfile.TemporaryDirectory()
+        self.media_override = override_settings(MEDIA_ROOT=self.media_directory.name)
+        self.media_override.enable()
         self.factory = RequestFactory()
         self.section = Section.objects.create(title="Section", order=1)
         self.item = Item.objects.create(section=self.section, number=1, text="Item")
@@ -23,7 +29,11 @@ class EvaluationImageSaveTests(TestCase):
             image="evaluation_images/existing.jpg",
         )
 
-    def post_request(self, extra_post=None):
+    def tearDown(self):
+        self.media_override.disable()
+        self.media_directory.cleanup()
+
+    def post_request(self, extra_post=None, files=None):
         data = {
             "facility_name": "Facility updated",
             "visit_date": "2026-05-24",
@@ -34,6 +44,8 @@ class EvaluationImageSaveTests(TestCase):
         }
         if extra_post:
             data.update(extra_post)
+        if files:
+            data.update(files)
         return self.factory.post("/report/1/edit/", data=data)
 
     def test_existing_images_remain_when_editing_without_new_uploads(self):
@@ -42,13 +54,28 @@ class EvaluationImageSaveTests(TestCase):
         self.response.refresh_from_db()
         self.assertEqual(list(self.response.images.values_list("id", flat=True)), [self.image.id])
 
-    def test_existing_images_are_deleted_only_when_marked_for_deletion(self):
+    def test_existing_images_cannot_be_deleted_by_edit_request(self):
         save_evaluation_from_request(
             self.post_request({"deleted_images": [str(self.image.id)]}),
             self.evaluation,
         )
 
-        self.assertFalse(ResponseImage.objects.filter(id=self.image.id).exists())
+        self.assertTrue(ResponseImage.objects.filter(id=self.image.id).exists())
+
+    def test_new_images_are_appended_without_replacing_existing_images(self):
+        uploaded_image = SimpleUploadedFile(
+            "new.jpg",
+            b"new image content",
+            content_type="image/jpeg",
+        )
+
+        save_evaluation_from_request(
+            self.post_request(files={f"images_{self.item.id}": uploaded_image}),
+            self.evaluation,
+        )
+
+        self.assertEqual(self.response.images.count(), 2)
+        self.assertTrue(ResponseImage.objects.filter(id=self.image.id).exists())
 
     def test_blank_status_does_not_delete_response_with_existing_images(self):
         save_evaluation_from_request(

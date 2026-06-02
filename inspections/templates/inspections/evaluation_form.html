@@ -4,7 +4,6 @@
 
 <form method="post" enctype="multipart/form-data" class="form-card">
 {% csrf_token %}
-<div id="deleted-images-fields"></div>
 
 {% if db_error_message %}
 <div class="alert alert-warning" role="alert">{{ db_error_message }}</div>
@@ -146,7 +145,7 @@
                     <input type="file" name="images_{{ item.id }}" multiple accept="image/*" class="image-input" style="display:none">
                 </div>
                 
-                <!-- Image Preview with delete functionality -->
+                <!-- Saved images are permanent; new selections can still be removed before submit. -->
                 <div class="images-preview-container">
                     <div class="thumbs image-preview"></div>
                     {% if response %}
@@ -154,9 +153,6 @@
                         {% for img in response.images.all %}
                         <div class="image-item" data-img-id="{{ img.id }}">
                             <img src="{{ img.image.url }}" alt="صورة مخالفة">
-                            <button type="button" class="img-delete-btn" title="حذف الصورة">
-                                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg>
-                            </button>
                         </div>
                         {% endfor %}
                     </div>
@@ -327,28 +323,6 @@ document.querySelectorAll(".image-attach-btn").forEach(btn => {
         const container = this.closest(".image-upload-container");
         const fileInput = container.querySelector(".image-input");
         if (fileInput) fileInput.click();
-    });
-});
-
-document.querySelectorAll(".existing-images .img-delete-btn").forEach(btn => {
-    btn.addEventListener("click", function(e) {
-        e.preventDefault();
-        const imageItem = this.closest(".image-item");
-        const imageId = imageItem?.dataset.imgId;
-        const deletedImagesFields = document.getElementById("deleted-images-fields");
-        if (!imageId || !deletedImagesFields) return;
-
-        const alreadyMarked = Array.from(deletedImagesFields.querySelectorAll("input[name='deleted_images']"))
-            .some(input => input.value === imageId);
-        if (!alreadyMarked) {
-            const hiddenInput = document.createElement("input");
-            hiddenInput.type = "hidden";
-            hiddenInput.name = "deleted_images";
-            hiddenInput.value = imageId;
-            deletedImagesFields.appendChild(hiddenInput);
-        }
-
-        imageItem.remove();
     });
 });
 

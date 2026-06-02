@@ -121,6 +121,7 @@
 {% endif %}
 </p>
 <p><b>تاريخ الزيارة:</b> {{ evaluation.visit_date }}</p>
+<p><b>آخر تعديل:</b> {{ evaluation.updated_at }}</p>
 <p><b>فريق التقييم:</b><br>{{ evaluation.evaluation_team|linebreaksbr }}</p>
 <p><b>الحالة:</b> {% if evaluation.is_draft %}مسودة{% else %}معتمد{% endif %}</p>
 </div>
